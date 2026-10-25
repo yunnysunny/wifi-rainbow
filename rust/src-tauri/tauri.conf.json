@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "WiFi-Rainbow",
+  "productName": "WiFi Rainbow",
   "version": "0.1.0",
   "identifier": "io.github.yunnysunny.wifi-rainbow",
   "build": {
@@ -32,7 +32,7 @@
     "icon": [
       "icons/icon.ico"
     ],
-    "publisher": "WiFi-Rainbow",
+    "publisher": "WiFi Rainbow",
     "windows": {
       "nsis": {
         "languages": [

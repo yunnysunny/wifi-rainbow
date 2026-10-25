@@ -1,4 +1,4 @@
-# WiFi 彩虹 · WiFi-Rainbow
+# WiFi 彩虹 · WiFi Rainbow
 
 [English](../README.md) · [使用手册](manual.zh-CN.md) · [User manual](manual.en.md) · [代码签名策略](CODE_SIGNING_POLICY.md)
 
@@ -10,7 +10,7 @@ Rust + Tauri 2 + 原生 HTML/JS，除了 Windows 自带的 WebView2 没有任何
 
 ## 下载
 
-安装包在 [Releases](https://github.com/yunnysunny/wifi-rainbow/releases) 页面：`WiFi-Rainbow_<版本>_x64-setup.exe`，按用户安装到 `%LOCALAPPDATA%\WiFi-Rainbow\`，不需要管理员权限。
+安装包在 [Releases](https://github.com/yunnysunny/wifi-rainbow/releases) 页面：`WiFi-Rainbow_<版本>_x64-setup.exe`，按用户安装到 `%LOCALAPPDATA%\WiFi Rainbow\`，不需要管理员权限。
 
 发布版本的签名方式见 [代码签名策略](CODE_SIGNING_POLICY.md)。
 
@@ -80,12 +80,20 @@ cargo run -p wlan-core --bin wlanscan
 
 ## 文档站
 
-`docs/` 下的手册可以转成静态站点：
+`tools/build-docs.mjs` 把 `docs/` 转成一个带产品首页和统一导航菜单（首页 · 使用手册 · 代码签名 · 下载 · GitHub · 语言切换）的静态站点：
 
 ```powershell
 npm install
-npm run docs         # -> site/  （index.html 英文，zh-CN/ 中文，code-signing.html）
+npm run docs         # -> site/
 ```
+
+| 页面 | 路径 |
+|---|---|
+| 首页（英文） | `site/index.html` |
+| 首页（中文） | `site/zh-CN/index.html` |
+| 手册（英文） | `site/manual/index.html` |
+| 手册（中文） | `site/zh-CN/manual/index.html` |
+| 代码签名策略 | `site/code-signing.html` |
 
 面向 Cloudflare Pages：连上仓库，构建命令填 `npm ci && npm run docs`，输出目录填 `site`，不需要别的配置；页面不引用任何外部资源。
 

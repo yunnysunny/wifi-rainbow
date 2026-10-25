@@ -1,7 +1,7 @@
 {
   "name": "wifi-rainbow-docs",
   "private": true,
-  "description": "Dev tooling for WiFi-Rainbow: unit tests and the Markdown → HTML manual build",
+  "description": "Dev tooling for WiFi Rainbow: unit tests and the Markdown → HTML manual build",
   "scripts": {
     "test": "node tests/changes.test.js",
     "docs": "node tools/build-docs.mjs",

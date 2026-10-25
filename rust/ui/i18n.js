@@ -1,4 +1,4 @@
-/* WiFi 彩虹（WiFi-Rainbow）· 界面文案（中 / 英）
+/* WiFi 彩虹（WiFi Rainbow）· 界面文案（中 / 英）
  *
  * 用法：
  *   t('insp.scan')                      取当前语言文案
@@ -205,7 +205,7 @@ const I18n = (() => {
     },
 
     en: {
-      'app.name': 'WiFi-Rainbow',
+      'app.name': 'WiFi Rainbow',
       'tab.inspector': 'Inspector',
       'tab.channels': 'Channels',
       'tab.settings': 'Settings',

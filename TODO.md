@@ -1,4 +1,4 @@
-# WiFi 彩虹（WiFi-Rainbow）· 待做
+# WiFi 彩虹（WiFi Rainbow）· 待做
 
 > 这份是唯一的口径：想做什么、先做什么、怎么验收。
 > 最后更新：2026-10-24 23:30
@@ -24,7 +24,7 @@
 | 3.2 多网卡 | 设置里「扫描网卡」下拉（空 = 全部）；Rust `scan_on(wait, guid)`，GUID 不在了退回全部；`wlanscan` 支持 `WLAN_IFACE=` | 本机只有一块卡，**多卡路径没真机验过** |
 | 3.4 扫描失败重试 | 连续失败按 2s/4s/8s…60s 退避（自动刷新的 tick 在退避期内跳过，手动点不受限）；状态栏变红可点开错误详情 | 代码路径有了，**没构造出真实失败**（拔网卡 / 禁用服务）验过 |
 | 4.3 日志轮转 | `ui.log` 过 1 MiB 轮转成 `ui.log.1`（留一代） | 代码路径 |
-| 4.1 安装包 | `cargo tauri build` → NSIS 按用户安装包，产品名 `WiFi-Rainbow` | 静默装 / 启动 / 静默卸全过，见第 6 节打包记录 |
+| 4.1 安装包 | `cargo tauri build` → NSIS 按用户安装包，产品名 `WiFi Rainbow` | 静默装 / 启动 / 静默卸全过，见第 6 节打包记录 |
 
 ---
 
@@ -89,16 +89,16 @@
 
 ### 打包记录（4.1）
 
-**2026-10-24 23:30，第一次真打包并装过一遍。** 产物 `rust/target/release/bundle/nsis/WiFi-Rainbow_0.1.0_x64-setup.exe`（1.94 MiB；exe 本体 9.35 MB，thin LTO）。`productName` / `publisher` 改成英文 `WiFi-Rainbow`（中文窗口标题由 `app.windows[0].title` 和 i18n 给），否则安装目录、注册表键、控制台输出里全是中文路径，排错时一团乱码。
+**2026-10-24 23:30，第一次真打包并装过一遍。** 产物 `rust/target/release/bundle/nsis/WiFi-Rainbow_0.1.0_x64-setup.exe`（1.94 MiB；exe 本体 9.35 MB，thin LTO）。`productName` / `publisher` 用英文 `WiFi Rainbow`（安装包文件名由 CI 改成连字符 `WiFi-Rainbow_<版本>_x64-setup.exe`，因为 GitHub 会把资源名里的空格换成点；安装目录和注册表键是 `WiFi Rainbow`）（中文窗口标题由 `app.windows[0].title` 和 i18n 给），否则安装目录、注册表键、控制台输出里全是中文路径，排错时一团乱码。
 
 验过的（静默 `/S` 装 → 启动 → 静默卸）：
 
 | 项 | 结果 |
 |---|---|
-| 安装位置 | 按用户装到 `%LOCALAPPDATA%\WiFi-Rainbow\`（`wifi-rainbow.exe` + `uninstall.exe`），不要管理员 |
-| 开始菜单 / 桌面快捷方式 | 都有，`WiFi-Rainbow.lnk`，目标正确 |
-| 注册表 | `HKCU\...\Uninstall\WiFi-Rainbow`：DisplayVersion 0.1.0、Publisher WiFi-Rainbow、DisplayIcon / UninstallString 正确、EstimatedSize 9212 KB |
-| 版本信息 | exe 的 FileVersion / ProductVersion 0.1.0，ProductName / CompanyName = WiFi-Rainbow |
+| 安装位置 | 按用户装到 `%LOCALAPPDATA%\WiFi Rainbow\`（`wifi-rainbow.exe` + `uninstall.exe`），不要管理员 |
+| 开始菜单 / 桌面快捷方式 | 都有，`WiFi Rainbow.lnk`，目标正确 |
+| 注册表 | `HKCU\...\Uninstall\WiFi Rainbow`：DisplayVersion 0.1.0、Publisher WiFi Rainbow、DisplayIcon / UninstallString 正确、EstimatedSize 9212 KB |
+| 版本信息 | exe 的 FileVersion / ProductVersion 0.1.0，ProductName / CompanyName = WiFi Rainbow |
 | 装好的 exe 能跑 | `ui.log` 里 boot ok，扫描、当前连接正常，窗口标题「WiFi 彩虹」 |
 | 卸载 | 目录、快捷方式、注册表键全清；`%LOCALAPPDATA%\WiFiRainbow\`（日志）和 WebView2 的 localStorage 保留，这是有意的 |
 | 安装器语言 | `bundle.windows.nsis.languages = ["SimpChinese","English"]`，不弹语言选择，中文系统上向导是中文（截图 `screens/new-installer.png`） |

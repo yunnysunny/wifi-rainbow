@@ -1,4 +1,4 @@
-﻿# 只截 WiFi-Rainbow 主窗口（PrintWindow），不含任务栏和输入法悬浮条。DPI-aware。
+﻿# 只截 WiFi Rainbow 主窗口（PrintWindow），不含任务栏和输入法悬浮条。DPI-aware。
 # 用法：powershell -NoProfile -File tools/shot-window.ps1 -Out docs/images/x.png [-Scale 0.5] [-Process wifi-rainbow]
 param(
   [Parameter(Mandatory = $true)][string]$Out,

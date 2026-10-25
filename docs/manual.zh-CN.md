@@ -1,4 +1,4 @@
-# WiFi 彩虹（WiFi-Rainbow）使用手册
+# WiFi 彩虹（WiFi Rainbow）使用手册
 
 [English](manual.en.md) · [项目说明（中文）](README.zh-CN.md) · [代码签名策略](CODE_SIGNING_POLICY.md)
 
@@ -9,8 +9,8 @@ WiFi 彩虹是一个 Windows 上的 Wi-Fi 分析工具。它扫描周围的接�
 ## 1. 安装与首次运行
 
 1. 从 [Releases](https://github.com/yunnysunny/wifi-rainbow/releases) 页面下载 `WiFi-Rainbow_<版本>_x64-setup.exe`。
-2. 运行它。程序只给当前用户安装，位置在 `%LOCALAPPDATA%\WiFi-Rainbow\`，不要管理员权限；会建开始菜单项和桌面快捷方式。
-3. 启动 **WiFi-Rainbow**。第一次扫描自动进行，两秒左右窗口就有内容了。
+2. 运行它。程序只给当前用户安装，位置在 `%LOCALAPPDATA%\WiFi Rainbow\`，不要管理员权限；会建开始菜单项和桌面快捷方式。
+3. 启动 **WiFi Rainbow**。第一次扫描自动进行，两秒左右窗口就有内容了。
 
 系统要求：Windows 10 / 11（x64）、一块无线网卡、Microsoft Edge WebView2 运行时（Windows 11 自带；Windows 10 上程序起不来的话到 [这里下载](https://developer.microsoft.com/microsoft-edge/webview2/)）。
 

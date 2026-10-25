@@ -1,4 +1,4 @@
-# WiFi-Rainbow
+# WiFi Rainbow
 
 [中文说明](docs/README.zh-CN.md) · [User manual](docs/manual.en.md) · [使用手册](docs/manual.zh-CN.md) · [Code signing policy](docs/CODE_SIGNING_POLICY.md)
 
@@ -10,7 +10,7 @@ Rust + Tauri 2 + plain HTML/JS, no third-party runtime beyond the WebView2 that 
 
 ## Download
 
-Installer on the [Releases](https://github.com/yunnysunny/wifi-rainbow/releases) page: `WiFi-Rainbow_<version>_x64-setup.exe`. Per-user install into `%LOCALAPPDATA%\WiFi-Rainbow\`, no administrator rights needed.
+Installer on the [Releases](https://github.com/yunnysunny/wifi-rainbow/releases) page: `WiFi-Rainbow_<version>_x64-setup.exe`. Per-user install into `%LOCALAPPDATA%\WiFi Rainbow\`, no administrator rights needed.
 
 Release binaries are signed as described in the [code signing policy](docs/CODE_SIGNING_POLICY.md).
 
@@ -80,12 +80,20 @@ Development notes, known limits and the backlog are in [TODO.md](TODO.md) (Chine
 
 ## Documentation site
 
-The manuals in `docs/` build into a static site:
+`tools/build-docs.mjs` turns `docs/` into a static site with a product home page and a shared navigation menu (Home · Manual · Code signing · Download · GitHub · language switch):
 
 ```powershell
 npm install
-npm run docs         # -> site/  (index.html = English, zh-CN/ = Chinese, code-signing.html)
+npm run docs         # -> site/
 ```
+
+| Page | Path |
+|---|---|
+| Home (English) | `site/index.html` |
+| Home (Chinese) | `site/zh-CN/index.html` |
+| Manual (English) | `site/manual/index.html` |
+| Manual (Chinese) | `site/zh-CN/manual/index.html` |
+| Code signing policy | `site/code-signing.html` |
 
 It is meant for Cloudflare Pages: connect the repository, set the build command to `npm ci && npm run docs` and the output directory to `site`. No other configuration is needed; the pages reference no external resources.
 

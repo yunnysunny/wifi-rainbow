@@ -1,16 +1,16 @@
-# WiFi-Rainbow User Manual
+# WiFi Rainbow User Manual
 
 [中文版](manual.zh-CN.md) · [Project README](../README.md) · [Code signing policy](CODE_SIGNING_POLICY.md)
 
-WiFi-Rainbow is a Wi-Fi analyzer for Windows. It scans the access points around you and shows, in one window, where they sit on the spectrum, how strong they are, how they interfere with each other, which channel is the quietest, and what your own adapter is actually connected to.
+WiFi Rainbow is a Wi-Fi analyzer for Windows. It scans the access points around you and shows, in one window, where they sit on the spectrum, how strong they are, how they interfere with each other, which channel is the quietest, and what your own adapter is actually connected to.
 
 The screenshots in this manual were taken in the built-in demo mode with a synthetic set of networks, so the names you see are not real neighbours.
 
 ## 1. Install and first run
 
 1. Download `WiFi-Rainbow_<version>_x64-setup.exe` from the [Releases](https://github.com/yunnysunny/wifi-rainbow/releases) page.
-2. Run it. The program installs for the current user only, into `%LOCALAPPDATA%\WiFi-Rainbow\`, and does not ask for administrator rights. It adds a Start menu entry and a desktop shortcut.
-3. Start **WiFi-Rainbow**. The first scan runs automatically and the window fills up after about two seconds.
+2. Run it. The program installs for the current user only, into `%LOCALAPPDATA%\WiFi Rainbow\`, and does not ask for administrator rights. It adds a Start menu entry and a desktop shortcut.
+3. Start **WiFi Rainbow**. The first scan runs automatically and the window fills up after about two seconds.
 
 Requirements: Windows 10 or 11 (x64), a wireless adapter, and the Microsoft Edge WebView2 runtime (preinstalled on Windows 11; on Windows 10 [download it here](https://developer.microsoft.com/microsoft-edge/webview2/) if the program does not start).
 
@@ -177,4 +177,4 @@ Files are written to your *Downloads* folder; the status bar shows the full path
 
 ## 9. Privacy
 
-WiFi-Rainbow makes no network connections and transfers no information to any system. All data shown comes from the local Windows Native Wifi API. Exports go only where you put them.
+WiFi Rainbow makes no network connections and transfers no information to any system. All data shown comes from the local Windows Native Wifi API. Exports go only where you put them.

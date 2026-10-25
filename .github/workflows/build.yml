@@ -69,8 +69,11 @@ jobs:
         shell: bash
         run: |
           f=$(ls rust/target/release/bundle/nsis/*-setup.exe | head -1)
-          echo "installer=$f" >> "$GITHUB_OUTPUT"
-          echo "built: $f ($(stat -c %s "$f") bytes)"
+          # 产品名是 "WiFi Rainbow"（带空格），文件名统一用连字符：GitHub 会把资源名里的空格换成点
+          g="${f// /-}"
+          [ "$f" != "$g" ] && mv "$f" "$g"
+          echo "installer=$g" >> "$GITHUB_OUTPUT"
+          echo "built: $g ($(stat -c %s "$g") bytes)"
 
       - name: upload unsigned installer
         id: upload
@@ -142,6 +145,6 @@ jobs:
           fi
           gh release create "${{ github.ref_name }}" "$f" \
             --repo "${{ github.repository }}" \
-            --title "WiFi-Rainbow ${{ github.ref_name }}" \
+            --title "WiFi Rainbow ${{ github.ref_name }}" \
             --notes "$note" \
             --generate-notes

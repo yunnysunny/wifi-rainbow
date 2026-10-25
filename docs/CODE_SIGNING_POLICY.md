@@ -25,7 +25,7 @@ All team members use multi-factor authentication for their GitHub and SignPath a
 
 ## Privacy policy
 
-WiFi-Rainbow does not transfer any information to any system, not even on the user's request. It makes no network connections at all: all data shown comes from the local Windows Native Wifi API, and settings are stored only in the local WebView2 profile. CSV / PNG exports are written to the user's own Downloads folder and are never uploaded anywhere.
+WiFi Rainbow does not transfer any information to any system, not even on the user's request. It makes no network connections at all: all data shown comes from the local Windows Native Wifi API, and settings are stored only in the local WebView2 profile. CSV / PNG exports are written to the user's own Downloads folder and are never uploaded anywhere.
 
 The installer does not change any system configuration beyond installing the program for the current user, creating Start menu / desktop shortcuts and registering an uninstaller. Uninstallation is available from Windows "Apps & features" or `uninstall.exe` in the install directory.
 
@@ -35,4 +35,4 @@ The signed binaries contain only code from this repository plus its open-source 
 
 ## License
 
-WiFi-Rainbow is released under the [MIT License](../LICENSE).
+WiFi Rainbow is released under the [MIT License](../LICENSE).
