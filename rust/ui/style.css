@@ -456,6 +456,11 @@ tbody td { padding: 6px 10px; white-space: nowrap; }
 .ch-chip.bad { border-color: #5c1e1e; }
 .ch-chip.bad em { color: var(--bad); }
 .ch-best { margin-left: auto; font-size: 11px; color: var(--good); white-space: nowrap; }
+.ch-chip { cursor: default; }
+.ch-chip.hl { background: #14304d; border-color: var(--accent); color: #dbe6f5; }
+.ch-chip.hl em { color: #9fd0ff; }
+#ch-table tbody tr.hl > td { background: #1d2a3d; }
+#ch-table tbody tr.hl > td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 
 .ch-table-wrap { background: var(--panel); overflow: auto; padding-bottom: 6px; }
 #ch-table tbody tr { cursor: pointer; }

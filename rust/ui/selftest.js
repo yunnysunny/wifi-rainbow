@@ -59,6 +59,47 @@ const SelfTest = (() => {
       log('error', 'channels probe failed: ' + e);
     }
 
+    // 信道高亮：悬停评分标签 → 对应频谱里命中的条数 = 按 ±10 MHz 口径算出的 AP 数；表格高亮行数一致；离开后清空
+    try {
+      clickTab('channels');
+      await frames();
+      const out = [];
+      for (const band of ['2.4 GHz', '5 GHz']) {
+        const id = band.replace(/[^0-9a-z]/gi, '');
+        const chip = document.querySelector(`#ch-score-${id} .ch-chip[data-ch]`);
+        const cv = document.querySelector(`#ch-spec-${id}`);
+        if (!chip || !cv) {
+          out.push(`${band}:no-chip`);
+          continue;
+        }
+        const ch = Number(chip.dataset.ch);
+        chip.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }));
+        await frames();
+        const expect = Inspector.aps().filter((a) => a.band === band && Channels.onChannel(a, band, ch));
+        const drawn = Math.min(8, expect.length); // 频谱最多画 8 条
+        const hits = cv._hl?.hits?.length ?? -1;
+        const rows = document.querySelectorAll('#ch-table tbody tr.hl').length;
+        const chipOn = chip.classList.contains('hl');
+        chip.dispatchEvent(new MouseEvent('mouseleave', { bubbles: false }));
+        await frames();
+        const cleared = cv._hl === null && document.querySelectorAll('#ch-table tbody tr.hl, .ch-chip.hl').length === 0;
+        // 画布悬停：在该信道中心位置造一次 mousemove，应该命中同一个信道
+        const g = cv._geom;
+        const b = cv._bandInfo;
+        const x = g.xOf(Channels.freqOf(band, ch));
+        const r = cv.getBoundingClientRect();
+        cv.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: r.left + x, clientY: r.top + r.height / 2 }));
+        await frames();
+        const viaCanvas = Channels.hover()?.ch === ch && Channels.hover()?.band === band;
+        cv.dispatchEvent(new MouseEvent('mouseleave'));
+        await frames();
+        out.push(`${band}:ch${ch} expect=${expect.length} drawnHits=${hits}/${drawn} rowsHl=${rows} chipOn=${chipOn} cleared=${cleared} canvasHover=${viaCanvas} bars=${b.aps.length}`);
+      }
+      log('info', `selftest chhover: ${out.join(' | ')}`);
+    } catch (e) {
+      log('error', 'chhover probe failed: ' + e);
+    }
+
     // Inspector 布局（用来核对 300% 缩放机器上的实际视口）
     try {
       clickTab('inspector');

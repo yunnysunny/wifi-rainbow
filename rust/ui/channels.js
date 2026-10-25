@@ -146,8 +146,22 @@ const Channels = (() => {
     return 'bad';
   }
 
+  // 当前高亮的信道：鼠标悬在评分标签上，或悬在频谱图里某个信道的位置
+  let hover = null; // { band, ch }
+  let lastBands = []; // 上一次 render 的 analyze 结果，重画单个频段时用
+
+  /** 一个 AP 算不算「在这个信道上」：和打分同一口径——频谱跟信道中心 ±10 MHz 有重叠 */
+  function onChannel(ap, band, ch) {
+    const center = freqOf(band, ch);
+    if (!center) return false;
+    const s = spanOf(ap);
+    return Math.min(center + 10, s.hi) - Math.max(center - 10, s.lo) > 0;
+  }
+
   function drawSpectrum(cv, bandInfo) {
     const { spec } = bandInfo;
+    const hl = hover && hover.band === bandInfo.band ? hover.ch : null;
+    cv._bandInfo = bandInfo;
     // 同频 AP 太多时行高会撑不住，只画最强的 8 个（完整清单在下表）
     const all = bandInfo.aps;
     const MAX_ROWS = 8;
@@ -164,6 +178,14 @@ const Channels = (() => {
     const baseline = padT + plotH;
     const xOf = (f) => padL + ((f - spec.min) / (spec.max - spec.min)) * plotW;
 
+    // 高亮信道：先铺一条浅色竖带（信道中心 ±10 MHz），再画刻度
+    cv._geom = { xOf, padL, padR, padT, baseline, w, h, plotW };
+    if (hl != null) {
+      const c = freqOf(bandInfo.band, hl);
+      ctx.fillStyle = 'rgba(74, 163, 255, 0.10)';
+      ctx.fillRect(xOf(c - 10), padT - 2, xOf(c + 10) - xOf(c - 10), baseline - padT + 2);
+    }
+
     // 底：候选信道的浅色刻度
     ctx.strokeStyle = '#1b2230';
     ctx.lineWidth = 1;
@@ -173,14 +195,21 @@ const Channels = (() => {
     const labelEvery = spec.chans.length > 26 ? 6 : 2;
     spec.chans.forEach((ch, i) => {
       const x = xOf(freqOf(bandInfo.band, ch));
+      ctx.strokeStyle = ch === hl ? '#4aa3ff' : '#1b2230';
       ctx.beginPath();
       ctx.moveTo(x, padT);
       ctx.lineTo(x, baseline);
       ctx.stroke();
-      if (i % labelEvery === 0) ctx.fillText(String(ch), x, h - 5);
+      if (i % labelEvery === 0 || ch === hl) {
+        ctx.fillStyle = ch === hl ? '#9fd0ff' : '#5b6579';
+        ctx.font = ch === hl ? 'bold 9px Consolas, monospace' : '9px Consolas, monospace';
+        ctx.fillText(String(ch), x, h - 5);
+      }
     });
+    ctx.font = '9px Consolas, monospace';
 
     if (!aps.length) {
+      cv._hl = null;
       ctx.fillStyle = '#4b5566';
       ctx.font = '12px "Segoe UI", sans-serif';
       ctx.textAlign = 'center';
@@ -199,15 +228,18 @@ const Channels = (() => {
       const y = padT + i * rowH;
       const bh = Math.max(5, rowH - 3);
       const color = rssiColor(ap.rssi);
-      ctx.fillStyle = hexAlpha(color, 0.75);
+      // 高亮态：命中的条全亮 + 白边，其余压暗
+      const hit = hl != null && onChannel(ap, bandInfo.band, hl);
+      const dim = hl != null && !hit;
+      ctx.fillStyle = hexAlpha(color, dim ? 0.18 : hit ? 0.95 : 0.75);
       ctx.beginPath();
       const r = Math.min(3, bh / 2);
       ctx.roundRect ? ctx.roundRect(x0, y, Math.max(3, x1 - x0), bh, r) : ctx.rect(x0, y, Math.max(3, x1 - x0), bh);
       ctx.fill();
-      ctx.strokeStyle = hexAlpha(color, 0.95);
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = hit ? '#eef4fc' : hexAlpha(color, dim ? 0.3 : 0.95);
+      ctx.lineWidth = hit ? 1.5 : 1;
       ctx.stroke();
-      jobs.push({ x0, x1, y, bh, color, ap });
+      jobs.push({ x0, x1, y, bh, color, ap, hit, dim });
     });
 
     // 第二遍才写标签：块够宽写在块里（字色按块色算），不够宽贴到块外并垫一块深色底衬。
@@ -224,8 +256,9 @@ const Channels = (() => {
       }
     };
 
-    jobs.forEach(({ x0, x1, y, bh, color, ap }) => {
+    jobs.forEach(({ x0, x1, y, bh, color, ap, hit, dim }) => {
       const label = `${truncate(ap.ssid || t('ch.hidden'), 14)} · ch${ap.channel ?? '?'} · ${ap.rssi}`;
+      ctx.globalAlpha = dim ? 0.35 : 1;
       const fs = rowH >= 14 ? 10 : 9;
       ctx.font = `${fs}px "Segoe UI", "Microsoft YaHei UI", sans-serif`;
       ctx.textAlign = 'left';
@@ -251,7 +284,7 @@ const Channels = (() => {
       if (text !== label) text = text + '…';
       const tw = ctx.measureText(text).width;
       if (inside) {
-        ctx.fillStyle = inkOn(color, 0.75);
+        ctx.fillStyle = inkOn(color, hit ? 0.95 : 0.75);
         ctx.fillText(text, x0 + 5, ty);
       } else {
         let lx = x1 + 6;
@@ -263,9 +296,25 @@ const Channels = (() => {
       }
       labeled++;
       ctx.textBaseline = 'alphabetic';
+      ctx.globalAlpha = 1;
     });
 
     cv._labelStats = { bars: aps.length, labeled };
+    cv._hl = hl == null ? null : { ch: hl, hits: jobs.filter((j) => j.hit).map((j) => j.ap.bssid) };
+
+    // 高亮时在右上角写一行「chN · k 个 AP」
+    if (hl != null) {
+      const n = all.filter((a) => onChannel(a, bandInfo.band, hl)).length;
+      const sc = bandInfo.scored.find((s) => s.ch === hl);
+      const txt = t('ch.chip', { ch: hl, n, if: sc?.ifDbm ?? t('ch.none') });
+      ctx.font = '10px "Segoe UI", "Microsoft YaHei UI", sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'alphabetic';
+      const tw = ctx.measureText(txt).width;
+      chipBg(w - padR - 2 - tw, padT + 7, tw, 10);
+      ctx.fillStyle = '#9fd0ff';
+      ctx.fillText(txt, w - padR - 2, padT + 11);
+    }
 
     if (hidden > 0) {
       ctx.fillStyle = '#7d889c';
@@ -275,26 +324,79 @@ const Channels = (() => {
     }
   }
 
+  const bandId = (band) => band.replace(/[^0-9a-z]/gi, '');
+
+  /** 设置 / 清除高亮：只重画受影响的频段，并同步评分标签与表格行的高亮类 */
+  function highlight(band, ch) {
+    const next = band && ch != null ? { band, ch } : null;
+    if ((hover?.band ?? null) === (next?.band ?? null) && (hover?.ch ?? null) === (next?.ch ?? null)) return;
+    const prevBand = hover?.band;
+    hover = next;
+    for (const b of lastBands) {
+      if (b.band !== prevBand && b.band !== next?.band) continue;
+      const cv = document.querySelector(`#ch-spec-${bandId(b.band)}`);
+      if (cv) drawSpectrum(cv, b);
+    }
+    document.querySelectorAll('.ch-chip.hl').forEach((el) => el.classList.remove('hl'));
+    document.querySelectorAll('#ch-table tbody tr.hl').forEach((el) => el.classList.remove('hl'));
+    if (!next) return;
+    document.querySelector(`#ch-score-${bandId(next.band)} .ch-chip[data-ch="${next.ch}"]`)?.classList.add('hl');
+    const hits = new Set(Inspector.aps().filter((a) => a.band === next.band && onChannel(a, next.band, next.ch)).map((a) => a.bssid));
+    document.querySelectorAll('#ch-table tbody tr').forEach((tr) => tr.classList.toggle('hl', hits.has(tr.dataset.bssid)));
+  }
+
+  /** 频谱图上鼠标位置对应的信道：取中心频率最近、且在 ±10 MHz 内的候选信道 */
+  function channelAt(cv, ev) {
+    const g = cv._geom;
+    const b = cv._bandInfo;
+    if (!g || !b) return null;
+    const rect = cv.getBoundingClientRect();
+    const x = ev.clientX - rect.left;
+    if (x < g.padL || x > g.w - g.padR) return null;
+    const freq = b.spec.min + ((x - g.padL) / g.plotW) * (b.spec.max - b.spec.min);
+    let best = null;
+    for (const ch of b.spec.chans) {
+      const d = Math.abs(freqOf(b.band, ch) - freq);
+      if (d <= 10 && (!best || d < best.d)) best = { ch, d };
+    }
+    return best ? best.ch : null;
+  }
+
+  function bindHover(cv, band) {
+    if (cv._hoverBound) return;
+    cv._hoverBound = true;
+    cv.addEventListener('mousemove', (ev) => highlight(band, channelAt(cv, ev)));
+    cv.addEventListener('mouseleave', () => highlight(null));
+  }
+
   function render() {
     const aps = Inspector.aps();
     const { rows, bands } = analyze(aps);
+    lastBands = bands;
 
     // 频段：频谱 + 信道评分
     for (const b of bands) {
-      const cv = document.querySelector(`#ch-spec-${b.band.replace(/[^0-9a-z]/gi, '')}`);
-      if (cv) drawSpectrum(cv, b);
-      const host = document.querySelector(`#ch-score-${b.band.replace(/[^0-9a-z]/gi, '')}`);
+      const cv = document.querySelector(`#ch-spec-${bandId(b.band)}`);
+      if (cv) {
+        drawSpectrum(cv, b);
+        bindHover(cv, b.band);
+      }
+      const host = document.querySelector(`#ch-score-${bandId(b.band)}`);
       if (!host) continue;
       const top = [...b.scored].sort((a, c) => c.score - a.score || a.ch - c.ch).slice(0, 12);
       host.innerHTML = top
         .map(
-          (s) => `<span class="ch-chip ${scoreClass(s.score)}" title="${t('ch.chip', { ch: s.ch, n: s.count, if: s.ifDbm ?? '—' })}">
+          (s) => `<span class="ch-chip ${scoreClass(s.score)}${hover?.band === b.band && hover.ch === s.ch ? ' hl' : ''}" data-ch="${s.ch}" title="${t('ch.chip', { ch: s.ch, n: s.count, if: s.ifDbm ?? '—' })}">
             <b>${s.ch}</b><em>${s.score}</em></span>`
         )
         .join('') +
         (b.best
           ? `<span class="ch-best">${t(b.best.dfs ? 'ch.best.dfs' : 'ch.best', { ch: b.best.ch })} · ${b.best.ifDbm != null ? t('ch.ifdbm', { v: b.best.ifDbm }) : t('ch.ifnone')}</span>`
           : `<span class="ch-best">${t('ch.best.none')}</span>`);
+      host.querySelectorAll('.ch-chip[data-ch]').forEach((chip) => {
+        chip.addEventListener('mouseenter', () => highlight(b.band, Number(chip.dataset.ch)));
+        chip.addEventListener('mouseleave', () => highlight(null));
+      });
     }
 
     // 表格
@@ -326,7 +428,9 @@ const Channels = (() => {
           </tr>`;
         })
         .join('');
+      const hits = hover ? new Set(aps.filter((a) => a.band === hover.band && onChannel(a, hover.band, hover.ch)).map((a) => a.bssid)) : null;
       tbody.querySelectorAll('tr').forEach((tr) => {
+        if (hits) tr.classList.toggle('hl', hits.has(tr.dataset.bssid));
         tr.addEventListener('click', () => {
           const ap = Inspector.aps().find((a) => a.bssid === tr.dataset.bssid);
           if (ap) Detail.show(ap);
@@ -364,5 +468,5 @@ const Channels = (() => {
     render();
   }
 
-  return { init, activate, render, analyze, profile, distanceOf, freqOf, spanOf, overlapRatio };
+  return { init, activate, render, analyze, profile, distanceOf, freqOf, spanOf, overlapRatio, highlight, onChannel, hover: () => hover };
 })();

@@ -7,7 +7,7 @@
  *   <button data-i18n-title="chart.max">  只换 title 属性
  *   <input data-i18n-ph="bar.filter">     只换 placeholder
  *
- * 约定：频段名（2.4 GHz）、单位（dBm / MHz / s / m）、信道号（ch36）、BSSID、SSID
+ * 约定：Inspector 视图中文叫「概览」。频段名（2.4 GHz）、单位（dBm / MHz / s / m）、信道号（ch36）、BSSID、SSID
  * 这类行业写法不进字典，两种语言下都一样。SSID 为空的网络按各自语言显示 <hidden>。
  * 开发者日志（ui.log）不进字典，保持中文，方便排查。
  */
@@ -21,7 +21,7 @@ const I18n = (() => {
   const DICT = {
     zh: {
       'app.name': 'WiFi 彩虹',
-      'tab.inspector': 'Inspector',
+      'tab.inspector': '概览',
       'tab.channels': '信道',
       'tab.settings': '设置',
 
@@ -179,7 +179,7 @@ const I18n = (() => {
       'set.bands.hint': '关掉的频段一律不参与',
       'set.scan': '扫描',
       'set.scansec': '自动刷新间隔',
-      'set.scansec.hint': '顶栏那个「自动刷新」开着时才生效，只在 Inspector 视图扫描',
+      'set.scansec.hint': '顶栏那个「自动刷新」开着时才生效，只在「概览」视图扫描',
       'set.sec': '秒',
       'set.iface': '扫描网卡',
       'set.iface.hint': '多块无线网卡时选一块；选中的网卡拔掉后自动退回全部',

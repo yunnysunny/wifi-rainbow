@@ -149,6 +149,10 @@ const Demo = (() => {
       Inspector.toggleMax('b1');
     } else if (view === 'channels') {
       clickTab('channels');
+    } else if (view === 'chhover') {
+      clickTab('channels');
+      await frames();
+      Channels.highlight('2.4 GHz', 6);
     } else if (view === 'settings') {
       clickTab('settings');
     }

@@ -31,6 +31,7 @@ Requirements: Windows 10 / 11 x64, a wireless adapter, the [WebView2 runtime](ht
 - Spectrum occupancy per band
 - Co-/adjacent-channel overlap, carrier-to-interference ratio (CIR), main interferers
 - Channel scores and a recommended channel per band (5 GHz avoids DFS)
+- Hover a channel to highlight every AP on it
 
 **AP details drawer**
 - Signal / quality / estimated distance / vendor, 3-minute sparkline, interference profile

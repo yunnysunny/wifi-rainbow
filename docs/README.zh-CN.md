@@ -6,7 +6,7 @@ Windows 上的 Wi-Fi 分析小工具：实时扫描附近的接入点，画出�
 
 Rust + Tauri 2 + 原生 HTML/JS，除了 Windows 自带的 WebView2 没有任何第三方运行时。不联网，不收集任何数据。
 
-![Inspector 视图](images/zh-inspector.png)
+![概览视图](images/zh-inspector.png)
 
 ## 下载
 
@@ -18,7 +18,7 @@ Rust + Tauri 2 + 原生 HTML/JS，除了 Windows 自带的 WebView2 没有任何
 
 ## 功能
 
-**Inspector**
+**概览**
 - 2.4 / 5 / 6 GHz 三频段弧形信号图：弧宽 = 信道带宽，高度 = 信号强度；被更强 AP 完全盖住的弧改虚线
 - 3 分钟信号历史曲线，或切到「事件」看最近的变化：新出现 / 消失 / 掉信号 / 换信道 / 换带宽
 - AP 列表：SSID、BSSID、dBm、质量、信道、频段、带宽、PHY、安全方式、AKM、客户端数、空口占用、趋势；可排序，可按 SSID / BSSID / 别名过滤
@@ -31,6 +31,7 @@ Rust + Tauri 2 + 原生 HTML/JS，除了 Windows 自带的 WebView2 没有任何
 - 三频段频谱占用图
 - 同频 / 邻频重叠分析、载干比（CIR）、主要干扰源
 - 每频段的候选信道评分与建议信道（5 GHz 避开 DFS）
+- 鼠标悬停某个信道，高亮该信道上的所有 AP
 
 **AP 详情抽屉**
 - 信号 / 质量 / 估算距离 / 厂商、最近 3 分钟 sparkline、干扰画像
