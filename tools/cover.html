@@ -1,0 +1,92 @@
+<!doctype html>
+<!-- 宣传文章封面（微信公众号 2.35:1）。渲染：
+     msedge --headless=new --window-size=1080,460 --force-device-scale-factor=2 --screenshot=docs/images/cover.png tools/cover.html -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; width: 1080px; height: 460px; overflow: hidden; }
+  body {
+    font-family: "Segoe UI", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif;
+    color: #dfe6f3;
+    background:
+      radial-gradient(900px 500px at 85% 110%, rgba(74, 163, 255, .22), transparent 60%),
+      radial-gradient(600px 400px at 10% -20%, rgba(74, 222, 128, .14), transparent 60%),
+      linear-gradient(135deg, #0d1017 0%, #10131a 50%, #141a26 100%);
+    position: relative;
+  }
+  .grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(42, 50, 67, .35) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(42, 50, 67, .35) 1px, transparent 1px);
+    background-size: 54px 54px;
+    mask-image: linear-gradient(90deg, transparent 35%, #000 70%);
+    -webkit-mask-image: linear-gradient(90deg, transparent 35%, #000 70%);
+  }
+  .left { position: absolute; left: 64px; top: 70px; width: 520px; }
+  .brand { display: flex; align-items: center; gap: 14px; margin-bottom: 26px; }
+  .brand img { width: 44px; height: 44px; border-radius: 11px; box-shadow: 0 6px 18px rgba(0,0,0,.4); }
+  .brand span { font-size: 20px; font-weight: 600; letter-spacing: .04em; color: #9fd0ff; }
+  h1 { margin: 0; font-size: 62px; line-height: 1.1; font-weight: 800; letter-spacing: -.01em; }
+  h1 em { font-style: normal; background: linear-gradient(90deg, #4ade80, #a3e635, #fbbf24, #fb923c, #f87171); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  p.sub { margin: 18px 0 0; font-size: 22px; color: #b7c2d6; line-height: 1.5; }
+  .tags { margin-top: 28px; display: flex; gap: 10px; }
+  .tags span { font-size: 14px; padding: 6px 12px; border-radius: 999px; border: 1px solid #2a3243; background: rgba(28, 34, 48, .8); color: #8b96ab; }
+  .tags span b { color: #dfe6f3; font-weight: 600; }
+  .chart { position: absolute; right: 48px; top: 54px; width: 440px; height: 352px; }
+  .chart svg { width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div class="grid"></div>
+<div class="left">
+  <div class="brand"><img src="../rust/src-tauri/icons/icon.png" alt=""><span>WiFi Rainbow</span></div>
+  <h1>WiFi <em>彩虹</em></h1>
+  <p class="sub">免费开源的 Windows Wi-Fi 分析工具<br>信号 · 信道 · 干扰，一眼看清</p>
+  <div class="tags"><span><b>Rust</b> + Tauri</span><span><b>离线</b> 不收集数据</span><span><b>MIT</b> 开源</span><span>一个周末 + <b>AI</b></span></div>
+</div>
+<div class="chart">
+  <svg viewBox="0 0 440 352" fill="none">
+    <defs>
+      <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4ade80" stop-opacity=".55"/><stop offset="1" stop-color="#4ade80" stop-opacity=".05"/></linearGradient>
+      <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbbf24" stop-opacity=".5"/><stop offset="1" stop-color="#fbbf24" stop-opacity=".05"/></linearGradient>
+      <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f87171" stop-opacity=".5"/><stop offset="1" stop-color="#f87171" stop-opacity=".05"/></linearGradient>
+      <linearGradient id="g4" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4aa3ff" stop-opacity=".5"/><stop offset="1" stop-color="#4aa3ff" stop-opacity=".05"/></linearGradient>
+      <linearGradient id="g5" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a78bfa" stop-opacity=".45"/><stop offset="1" stop-color="#a78bfa" stop-opacity=".05"/></linearGradient>
+    </defs>
+    <!-- 底板 -->
+    <rect x="0" y="0" width="440" height="352" rx="18" fill="#161b25" stroke="#2a3243"/>
+    <g stroke="#232b3a" stroke-width="1">
+      <line x1="40" y1="300" x2="420" y2="300"/>
+      <line x1="40" y1="230" x2="420" y2="230" stroke-dasharray="3 5"/>
+      <line x1="40" y1="160" x2="420" y2="160" stroke-dasharray="3 5"/>
+      <line x1="40" y1="90" x2="420" y2="90" stroke-dasharray="3 5"/>
+    </g>
+    <g fill="#5b6579" font-family="Consolas, monospace" font-size="11" text-anchor="end">
+      <text x="34" y="94">-30</text><text x="34" y="164">-50</text><text x="34" y="234">-70</text><text x="34" y="304">-90</text>
+    </g>
+    <g fill="#6b768c" font-family="Consolas, monospace" font-size="11" text-anchor="middle">
+      <text x="70" y="330">1</text><text x="160" y="330">6</text><text x="250" y="330">11</text><text x="340" y="330">36</text><text x="400" y="330">40</text>
+    </g>
+    <!-- 弧：先填充再描边 -->
+    <path d="M30 300 A50 230 0 0 1 130 300 Z" fill="url(#g3)"/>
+    <path d="M90 300 A75 212 0 0 1 240 300 Z" fill="url(#g1)"/>
+    <path d="M185 300 A45 150 0 0 1 275 300 Z" fill="url(#g2)"/>
+    <path d="M296 300 A48 236 0 0 1 392 300 Z" fill="url(#g4)"/>
+    <path d="M345 300 A40 120 0 0 1 425 300 Z" fill="url(#g5)"/>
+    <path d="M30 300 A50 230 0 0 1 130 300" stroke="#f87171" stroke-width="2.2"/>
+    <path d="M90 300 A75 212 0 0 1 240 300" stroke="#4ade80" stroke-width="2.4"/>
+    <path d="M185 300 A45 150 0 0 1 275 300" stroke="#fbbf24" stroke-width="2.2" stroke-dasharray="6 4"/>
+    <path d="M296 300 A48 236 0 0 1 392 300" stroke="#4aa3ff" stroke-width="2.4"/>
+    <path d="M345 300 A40 120 0 0 1 425 300" stroke="#a78bfa" stroke-width="2.2" stroke-dasharray="6 4"/>
+    <!-- 已连接的点 -->
+    <circle cx="344" cy="64" r="6" fill="#eef4fc" stroke="#4aa3ff" stroke-width="2.5"/>
+    <text x="356" y="60" fill="#9fd0ff" font-family="Segoe UI, Microsoft YaHei UI, sans-serif" font-size="12">已连接 · WPA3</text>
+    <!-- 标题 -->
+    <text x="22" y="34" fill="#8b96ab" font-family="Segoe UI, Microsoft YaHei UI, sans-serif" font-size="13">2.4 GHz · 5 GHz · 6 GHz</text>
+    <text x="418" y="34" fill="#4ade80" font-family="Segoe UI, Microsoft YaHei UI, sans-serif" font-size="13" text-anchor="end">建议 ch13</text>
+  </svg>
+</div>
+</body>
+</html>
