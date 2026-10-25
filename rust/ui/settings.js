@@ -217,6 +217,9 @@ const Settings = (() => {
 
   function init() {
     load();
+    // 启动时就把设置页和顶栏开关同步成已保存的值；之前只在打开设置页或改动时同步，
+    // 结果「按 SSID 分组」默认开着，顶栏复选框却显示没勾
+    render();
 
     $('#set-hide-hidden').addEventListener('change', (e) => set({ hideHidden: e.target.checked }));
     $('#set-min-rssi').addEventListener('input', (e) => set({ minRssi: Number(e.target.value) }));

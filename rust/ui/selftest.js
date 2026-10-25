@@ -18,6 +18,21 @@ const SelfTest = (() => {
 
   async function run(mode = 'channels') {
     const t0 = performance.now();
+
+    // 启动一致性：还没动过任何设置时，顶栏开关 / 定时器必须已经等于已保存的设置
+    try {
+      const s = Settings.get();
+      const groupCb = document.querySelector('#group')?.checked;
+      const setCb = document.querySelector('#set-group')?.checked;
+      const timer = Inspector.autoInterval();
+      log(
+        'info',
+        `selftest startup: groupBy=${s.groupBy} barCheckbox=${groupCb} settingsCheckbox=${setCb} ok=${groupCb === (s.groupBy === 'ssid') && setCb === (s.groupBy === 'ssid')} ` +
+          `scanSec=${s.scanSec} timer=${timer}ms ok=${timer === s.scanSec * 1000} grouped=${document.querySelectorAll('#ap tbody tr.grp-row').length > 0 || 'n/a'}`
+      );
+    } catch (e) {
+      log('error', 'startup probe failed: ' + e);
+    }
     let strongest = null;
 
     try {
@@ -654,6 +669,10 @@ const SelfTest = (() => {
         const c = Inspector.conn()[0];
         const ap = c && Inspector.apsAll().find((a) => a.bssid === c.bssid);
         if (ap) Detail.show(ap);
+      } else if (mode === 'persist') {
+        // 留下一组非默认设置，下一次启动用 startup 探针核对它们真的被加载并同步到界面
+        Settings.set({ scanSec: 7, groupBy: 'none' });
+        clickTab('inspector');
       } else if (mode === 'export' || mode === 'inspector') {
         clickTab('inspector');
       } else {

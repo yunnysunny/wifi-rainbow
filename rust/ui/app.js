@@ -24,10 +24,11 @@
   document.addEventListener('DOMContentLoaded', async () => {
     I18n.init();
     $$('.tab').forEach((t) => t.addEventListener('click', () => switchTo(t.dataset.view)));
+    // 先加载设置：Inspector.init 里的自动刷新定时器要读 scanSec，顶栏的「按 SSID 分组」复选框要同步 groupBy
+    Settings.init();
     Inspector.init();
     Detail.init?.();
     Channels.init();
-    Settings.init();
     Inspector.refreshIface();
 
     // 切语言：静态节点由 I18n 自己换，动态文案靠重画

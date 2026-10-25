@@ -11,6 +11,10 @@
 
 已验证（2026-10-24 23:11，AX200 / Win11 / 300% 缩放）：`cargo build` 干净；selftest **十五类**探针全过（信道、详情、布局几何、浮层定位、弧形遮挡、双语切换、设置逐项、**分组、变更追踪、事件面板、已连接、视图状态、别名+关注、导出**、放大预览）；`current_connection` 与 `netsh wlan show interfaces` 逐字段一致（WPA3-Personal / CCMP / 866.7 Mbps / 99%）；截图肉眼核对了分组、事件面板、连接抽屉、英文界面四个状态。
 
+### 2026-10-25 修的 bug
+
+- **启动时设置没同步到界面**（v0.1.0 装上就能看到）：`groupBy` 默认 `ssid`，但顶栏「按 SSID 分组」复选框只在打开设置页或改动设置时才同步，启动后显示未勾选、表格却在分组；同一根因让已保存的「自动刷新间隔」在启动时不生效（`Inspector.init` 先于 `Settings.init` 跑，定时器读到的是默认 5 秒）。修法：`app.js` 里先 `Settings.init()` 再 `Inspector.init()`，`Settings.init()` 结束时立即 `render()`。selftest 加 `startup` 探针；`persist` 停靠模式留一组非默认设置供下一次启动核对。
+
 ### 2026-10-24 这一轮做掉的
 
 | 项 | 做法 | 验收 |
