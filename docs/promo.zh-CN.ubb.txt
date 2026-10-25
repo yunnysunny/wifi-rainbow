@@ -1,0 +1,104 @@
+[size=6][b]为了测一个易拉罐天线，我用一个周末撸了个 Wi-Fi 分析工具[/b][/size]
+
+[img]https://cdn.jsdelivr.net/gh/yunnysunny/wifi-rainbow@main/docs/images/cover.png[/img]
+
+[size=5][b]起因：一个易拉罐[/b][/size]
+
+家里的路由器是小米 AC2100，放在客厅角落。本来相安无事的，不过我无聊时刷了一下 B 站，开始我下面的折腾历程。
+
+B 站上的一个 UP 主，演示了一下网上流传一个老办法：把易拉罐剪开，展成一个弧面，套在路由器的天线上，当抛物面反射器用，把原本向四面八方散出去的信号往一个方向聚。而我正好有两个易拉罐，之前本想着用来做电视天线玩的，碍于易拉罐制作时焊接太困难，一直没动，这次看来可以派上用场了。我用剪刀切开罐体，然后将剪切处用绝缘胶带贴好，防止剌手。
+
+[img]https://cdn.jsdelivr.net/gh/yunnysunny/wifi-rainbow@main/docs/images/promo-can-reflector.jpg[/img]
+
+然后问题来了：[b]怎么知道它到底有没有用？[/b]
+
+于是去找 Windows 上的 Wi-Fi 分析软件。找了一圈，主流的几款都只能免费试用，我当时就是想临时测试一下，能试用也能凑合。
+
+[size=5][b]一个周末，和 AI 一起[/b][/size]
+
+这个些天逆向是一个很火的话题，在没有 AI 之前很多应用的体验虽然很差，你也只能忍着，因为你没得选，现在有了强大的 AI ，完全就可以自己做主了。看着电脑上已经使用过期的 WiFi 分析软件，我就萌生了一个要自己“干”的念头
+
+说干就干，但我没打算从头手写。这次是和 AI 结对：我负责提需求、盯着结果、拍板取舍，AI 负责写代码、查资料、跑测试。
+
+先摸清底层：Windows 自带一套无线网卡接口（Native Wifi API，wlanapi.dll），扫描结果、信号强度、当前连接的加密方式都能拿到，不需要装驱动，也不需要什么特殊网卡。信道带宽、WPA2 还是 WPA3、路由器上连了几台设备，这些接口不直接给，得从路由器广播的 Beacon 帧里自己解析。
+
+技术栈选了 Rust 做数据层直接调系统接口（零第三方依赖），Tauri 2 做壳，界面就是原生 HTML + Canvas，没上框架。整个程序安装包不到 2 MB。
+
+中间踩了一个挺有意思的坑：系统接口返回的那块内存里，每条记录的 Beacon 数据之间是有对齐填充的，一开始按常见的 4 字节对齐去算，实际在 Intel AX200 上是 8 字节。按 4 字节算的话，从第一条长度是奇数的记录开始就全错位了，后面的 AP 全被识别成「无加密」。这个 bug 从第一天就在，直到看到自家路由器明明开着 WPA3 却显示 OPEN 才抓出来。
+
+周末结束，工具能用了。给它起名叫 [b]WiFi 彩虹[/b]，因为信号图是一道道彩色的弧。
+
+[size=5][b]它长什么样[/b][/size]
+
+[img]https://cdn.jsdelivr.net/gh/yunnysunny/wifi-rainbow@main/docs/images/zh-inspector.png[/img]
+
+主界面分三块：上面是 2.4 GHz、5 GHz、6 GHz 三张信号图，每个 AP 一道弧，弧越宽占的信道越宽，弧越高信号越强；中间是最近 3 分钟的信号历史曲线；下面是 AP 列表。
+
+列表默认[b]按路由器分组[/b]：sgreat 和 sgreat-5g 这种同一台路由的 2.4 GHz 和 5 GHz 会折成一行，不会把列表撑得老长。可以给网络起别名，比如「家里的路由」；给常看的网络打个星，它的曲线就会一直画着。
+
+[size=5][b]回到易拉罐[/b][/size]
+
+有了工具，测试就简单了：
+
+1. 贴上易拉罐皮，跑一分钟，截图。
+
+[img]https://cdn.jsdelivr.net/gh/yunnysunny/wifi-rainbow@main/docs/images/promo-with-reflector.png[/img]
+
+2. 拿掉易拉罐皮，再跑一分钟，再次截图。
+
+[img]https://cdn.jsdelivr.net/gh/yunnysunny/wifi-rainbow@main/docs/images/promo-without-reflector.png[/img]
+
+这么来看易拉罐还是启动了一定的作用。
+
+[size=5][b]几个顺手做出来的功能[/b][/size]
+
+[b]信道分析，告诉你该换哪个信道[/b]
+
+[img]https://cdn.jsdelivr.net/gh/yunnysunny/wifi-rainbow@main/docs/images/zh-chhover.png[/img]
+
+每个频段算出每个信道的拥挤程度，打分，推荐一个最清净的。鼠标悬在某个信道上，主信道是它的 AP 变蓝，只是频谱重叠、会干扰它的变琥珀，其余变暗。下面的表格列出每个 AP 的同频邻居、邻频邻居、载干比，以及主要是被谁干扰的。换信道这件事，终于不用靠猜了。
+
+[b]你连的到底是 WPA2 还是 WPA3[/b]
+
+[img]https://cdn.jsdelivr.net/gh/yunnysunny/wifi-rainbow@main/docs/images/zh-detail.png[/img]
+
+路由器「支持 WPA3」和你「真的在用 WPA3」是两回事。很多路由默认开的是 WPA2/WPA3 混合模式，老设备就会退回 WPA2。点开当前连接的 AP，详情面板里有一块「当前连接」，显示的是系统实际协商出来的认证方式、加密算法、链路速率，和 netsh wlan show interfaces 看到的一样，但不用敲命令。
+
+[b]变化追踪：谁新冒出来了，谁的信号掉了[/b]
+
+[img]https://cdn.jsdelivr.net/gh/yunnysunny/wifi-rainbow@main/docs/images/zh-events.png[/img]
+
+点一下「事件」，中间那栏从曲线切成一个变化列表：哪个 AP 新出现了、哪个消失了、谁的信号明显掉了、谁换了信道或带宽。掉信号的判定特意做了三道门（取最近三次平均、连续两轮确认、同一个 AP 一分钟只报一次），不然 Windows 网卡那个抖动会让它刷屏。
+
+[b]其他[/b]
+
+[list]
+[*]悬停任何一道弧看详情，点开弧或列表行打开详情面板
+[*]导出 CSV（列和界面一致）和 PNG（当前画面一张图）
+[*]中英文界面，一键切换
+[*]不联网，不收集任何数据，设置只存在本机
+[*]按用户安装，不需要管理员权限，安装包 2 MB
+[/list]
+
+[size=5][b]它做不到什么[/b][/size]
+
+说实话比吹牛重要：
+
+[list]
+[*]Windows 没有监听模式，所以是每两秒扫一次的轮询，瞬间的波动看不到。
+[*]信道评分是把互相重叠的信号强度加起来比较得出的，用来判断「哪个信道更清净」够用，但它不等于实际网速。
+[*]目前只在 Intel AX200 上实测过。换别的网卡厂商，Beacon 数据的内存布局可能又不一样，欢迎反馈。
+[*]6 GHz 的代码写了，但我手头没有 Wi-Fi 6E 设备，一条真机数据都没有。
+[/list]
+
+[size=5][b]下载和源码[/b][/size]
+
+[list]
+[*]项目主页与源码：[url]https://github.com/yunnysunny/wifi-rainbow[/url]
+[*]安装包：[url]https://github.com/yunnysunny/wifi-rainbow/releases[/url] （WiFi-Rainbow_<版本>_x64-setup.exe，Windows 10 / 11 64 位）
+[*]使用手册：仓库 docs/ 目录里有中英文两份，带截图
+[/list]
+
+MIT 协议开源。安装包目前还没有代码签名（已经向 SignPath Foundation 申请了面向开源项目的免费签名，等批准），所以首次运行 Windows 会弹 SmartScreen 提示，点「更多信息」→「仍要运行」就行。
+
+如果你也在折腾路由器摆位、换信道、或者纯粹想知道楼上楼下到底有多少个 Wi-Fi 在跟你抢信道，拿去用。有 bug 或者想法，GitHub 上开个 issue，或者评论区见。

@@ -5,7 +5,8 @@
   "scripts": {
     "test": "node tests/changes.test.js",
     "docs": "node tools/build-docs.mjs",
-    "docs:serve": "node tools/build-docs.mjs && npx --yes serve site"
+    "docs:serve": "node tools/build-docs.mjs && npx --yes serve site",
+    "ubb": "node tools/md2ubb.mjs docs/promo.zh-CN.md docs/promo.zh-CN.ubb.txt"
   },
   "devDependencies": {
     "marked": "^15.0.0"
