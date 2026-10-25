@@ -134,9 +134,15 @@ For each band:
 
 The table lists every AP with its co-channel and adjacent-channel neighbours, the interference power from each kind, the CIR, the estimated distance and the main interferers. Click a row to open the details drawer. *Re-analyze* recomputes from the last scan without rescanning.
 
-**Who is on a channel?** Hover a channel's score chip, or hover the spectrum at that channel number, and the bars of the APs on that channel light up (white outline) while the others dim; a light-blue band marks the channel's range, the top-right corner shows how many APs are on it and how strong the interference is, and the matching rows in the table are highlighted too. "On the channel" uses the same rule as the score: the AP's spectrum overlaps the channel centre ±10 MHz. Move the mouse away to restore.
+**Who is on a channel?** Hover a channel's score chip, or hover the spectrum at that channel number, and each bar is recoloured by its relation to that channel:
 
-![Hovering channel 6 on 2.4 GHz](images/en-chhover.png)
+- **Blue**: APs whose primary channel is this channel.
+- **Amber**: APs on another channel whose spectrum overlaps this one and therefore interferes with it. 2.4 GHz channels are only 5 MHz apart, so a 20 MHz AP covers four channels on either side; hovering ch3 turns the ch1 APs amber.
+- **Dimmed**: APs unrelated to this channel keep their signal colour but fade out.
+
+A light-blue band marks the channel's range, the top-right corner shows how many APs are on the channel, how many overlap it and how strong the interference is, and the matching rows in the table are marked with the same two colours. Move the mouse away to restore.
+
+![Hovering channel 1 on 2.4 GHz: ch1 APs turn blue, the 40 MHz ch6 APs turn amber](images/en-chhover.png)
 
 The model sums overlapping power only; it does not simulate CSMA contention. Treat the numbers as a ranking, not a prediction of throughput.
 

@@ -56,7 +56,7 @@ const T = {
       note: 'The screenshots come from the built-in demo mode; all network names are fictional.',
       tabs: [
         ['inspector', 'Inspector', 'The main view. Three band charts on top, the last three minutes of signal history in the middle, the access point list at the bottom. "Group by SSID" is on in the screenshot, so the radios of one router are folded into a single row; click it to expand.'],
-        ['channels', 'Channels', 'One row per band: the crowding score of each channel (more green is quieter) with the recommended channel, then a spectrum view where each access point is a bar as wide as the channel it uses. Below that, the interference table: how many co-channel and adjacent-channel neighbours each access point has, its carrier-to-interference ratio, and who interferes most. Hover a channel number and the access points on that channel light up while the rest dim.'],
+        ['channels', 'Channels', 'One row per band: the crowding score of each channel (more green is quieter) with the recommended channel, then a spectrum view where each access point is a bar as wide as the channel it uses. Below that, the interference table: how many co-channel and adjacent-channel neighbours each access point has, its carrier-to-interference ratio, and who interferes most. Hover a channel number: access points on that channel turn blue, those that merely overlap and interfere with it turn amber, and the rest dim.'],
         ['detail', 'Details', 'Click any access point in the list or on a chart and its details slide in from the right. The screenshot shows the connected one, so it has an extra "Current connection" block: negotiated authentication and cipher, link rate, link quality, time connected. Below are a three-minute sparkline, the interference profile and the radio parameters.'],
         ['events', 'Events', 'Press the "Events" button at the top right of the signal history panel and the panel switches from curves to a list of changes. Each row is one change, left to right: time, type badge, network name, BSSID, description. The screenshot shows four: Pixel-Hotspot appeared; Library-Open was missing for two scans and is reported gone; Oak-Street dropped 12 dB; Cafe-Guest_5G moved from channel 149 to 36. Click a row to open the details of that access point.'],
       ],
@@ -110,7 +110,7 @@ const T = {
       note: '下面的截图来自程序内置的演示模式，网络名称都是虚构的。',
       tabs: [
         ['inspector', '概览', '主界面。上面是三张频段信号图，中间是最近 3 分钟的信号历史曲线，下面是接入点列表。截图里开着「按 SSID 分组」，所以同一台路由器的几个信号折成了一行，点一下可以展开。'],
-        ['channels', '信道', '每个频段一行：先是各个信道的拥挤评分（绿色越多越清净）和推荐信道，再是一张频谱占用图，每个接入点一条横条，横条的长度就是它占的带宽。最下面是干扰明细表：每个接入点有几个同频邻居、几个邻频邻居、载干比是多少、主要被谁干扰。鼠标悬在某个信道号上，这个信道上的接入点会高亮，其余变暗。'],
+        ['channels', '信道', '每个频段一行：先是各个信道的拥挤评分（绿色越多越清净）和推荐信道，再是一张频谱占用图，每个接入点一条横条，横条的长度就是它占的带宽。最下面是干扰明细表：每个接入点有几个同频邻居、几个邻频邻居、载干比是多少、主要被谁干扰。鼠标悬在某个信道号上，主信道是它的接入点变蓝，只是频谱重叠、会干扰它的变琥珀，其余变暗。'],
         ['detail', '详情', '在列表或图上点任意一个接入点，右侧会滑出它的详情面板。截图里点的是当前连接的那个，所以多了「当前连接」一块：实际协商的认证方式和加密算法、收发速率、链路质量、已连接时长。往下是最近 3 分钟的小曲线、干扰画像和射频参数。'],
         ['events', '事件', '点信号历史右上角的「事件」按钮，中间这一栏就从曲线切换成事件列表。每行一条变化，从左到右是：发生时间、类型标签、网络名、BSSID、具体说明。截图里能看到四条：Pixel-Hotspot 新出现了；Library-Open 连续两轮没扫到，判定为消失；Oak-Street 信号掉了 12 dB；Cafe-Guest_5G 从 149 信道换到了 36 信道。点任意一行会打开那个接入点的详情。'],
       ],

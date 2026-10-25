@@ -158,6 +158,23 @@ const Channels = (() => {
     return Math.min(center + 10, s.hi) - Math.max(center - 10, s.lo) > 0;
   }
 
+  /**
+   * 悬停某个信道时一个 AP 的高亮等级：
+   *   2 = 主信道就是这个信道（蓝）
+   *   1 = 主信道不是它，但频谱重叠、会干扰这个信道（琥珀）
+   *   0 = 无关（压暗）
+   * 2.4 GHz 信道间隔只有 5 MHz，一个 20 MHz 的 AP 实际压着相邻 ±4 个信道，
+   * 只按重叠判定会让「悬停 ch3」把 ch1 上的 AP 全点亮，所以要把「在这个信道上」和「会干扰这个信道」分开。
+   */
+  function hlLevel(ap, band, ch) {
+    if (ap.band !== band) return 0;
+    if (ap.channel === ch) return 2;
+    return onChannel(ap, band, ch) ? 1 : 0;
+  }
+
+  const HL_PRIMARY = '#4aa3ff'; // 和悬停竖带 / 评分标签同一个蓝
+  const HL_OVERLAP = '#fbbf24';
+
   function drawSpectrum(cv, bandInfo) {
     const { spec } = bandInfo;
     const hl = hover && hover.band === bandInfo.band ? hover.ch : null;
@@ -228,18 +245,21 @@ const Channels = (() => {
       const y = padT + i * rowH;
       const bh = Math.max(5, rowH - 3);
       const color = rssiColor(ap.rssi);
-      // 高亮态：命中的条全亮 + 白边，其余压暗
-      const hit = hl != null && onChannel(ap, bandInfo.band, hl);
-      const dim = hl != null && !hit;
-      ctx.fillStyle = hexAlpha(color, dim ? 0.18 : hit ? 0.95 : 0.75);
+      // 高亮态：主信道命中的条变蓝 + 亮边，只是频谱重叠的变琥珀，其余保留信号色但压暗
+      const level = hl == null ? -1 : hlLevel(ap, bandInfo.band, hl);
+      const hit = level === 2;
+      const dim = level === 0;
+      const fillHex = level === 2 ? HL_PRIMARY : level === 1 ? HL_OVERLAP : color;
+      const fillA = level === 2 ? 0.92 : level === 1 ? 0.85 : dim ? 0.18 : 0.75;
+      ctx.fillStyle = hexAlpha(fillHex, fillA);
       ctx.beginPath();
       const r = Math.min(3, bh / 2);
       ctx.roundRect ? ctx.roundRect(x0, y, Math.max(3, x1 - x0), bh, r) : ctx.rect(x0, y, Math.max(3, x1 - x0), bh);
       ctx.fill();
-      ctx.strokeStyle = hit ? '#eef4fc' : hexAlpha(color, dim ? 0.3 : 0.95);
+      ctx.strokeStyle = level === 2 ? '#dbeeff' : level === 1 ? HL_OVERLAP : hexAlpha(color, dim ? 0.3 : 0.95);
       ctx.lineWidth = hit ? 1.5 : 1;
       ctx.stroke();
-      jobs.push({ x0, x1, y, bh, color, ap, hit, dim });
+      jobs.push({ x0, x1, y, bh, color, ap, hit, dim, level, fillHex, fillA });
     });
 
     // 第二遍才写标签：块够宽写在块里（字色按块色算），不够宽贴到块外并垫一块深色底衬。
@@ -256,7 +276,7 @@ const Channels = (() => {
       }
     };
 
-    jobs.forEach(({ x0, x1, y, bh, color, ap, hit, dim }) => {
+    jobs.forEach(({ x0, x1, y, bh, ap, dim, fillHex, fillA }) => {
       const label = `${truncate(ap.ssid || t('ch.hidden'), 14)} · ch${ap.channel ?? '?'} · ${ap.rssi}`;
       ctx.globalAlpha = dim ? 0.35 : 1;
       const fs = rowH >= 14 ? 10 : 9;
@@ -284,7 +304,7 @@ const Channels = (() => {
       if (text !== label) text = text + '…';
       const tw = ctx.measureText(text).width;
       if (inside) {
-        ctx.fillStyle = inkOn(color, hit ? 0.95 : 0.75);
+        ctx.fillStyle = inkOn(fillHex, fillA);
         ctx.fillText(text, x0 + 5, ty);
       } else {
         let lx = x1 + 6;
@@ -300,13 +320,21 @@ const Channels = (() => {
     });
 
     cv._labelStats = { bars: aps.length, labeled };
-    cv._hl = hl == null ? null : { ch: hl, hits: jobs.filter((j) => j.hit).map((j) => j.ap.bssid) };
+    cv._hl =
+      hl == null
+        ? null
+        : {
+            ch: hl,
+            hits: jobs.filter((j) => j.level === 2).map((j) => j.ap.bssid),
+            overlaps: jobs.filter((j) => j.level === 1).map((j) => j.ap.bssid),
+          };
 
-    // 高亮时在右上角写一行「chN · k 个 AP」
+    // 高亮时在右上角写一行「chN · k 个 AP · m 个重叠 · 干扰 x dBm」
     if (hl != null) {
-      const n = all.filter((a) => onChannel(a, bandInfo.band, hl)).length;
+      const n = all.filter((a) => hlLevel(a, bandInfo.band, hl) === 2).length;
+      const ov = all.filter((a) => hlLevel(a, bandInfo.band, hl) === 1).length;
       const sc = bandInfo.scored.find((s) => s.ch === hl);
-      const txt = t('ch.chip', { ch: hl, n, if: sc?.ifDbm ?? t('ch.none') });
+      const txt = t('ch.hover', { ch: hl, n, ov, if: sc?.ifDbm ?? t('ch.none') });
       ctx.font = '10px "Segoe UI", "Microsoft YaHei UI", sans-serif';
       ctx.textAlign = 'right';
       ctx.textBaseline = 'alphabetic';
@@ -338,11 +366,20 @@ const Channels = (() => {
       if (cv) drawSpectrum(cv, b);
     }
     document.querySelectorAll('.ch-chip.hl').forEach((el) => el.classList.remove('hl'));
-    document.querySelectorAll('#ch-table tbody tr.hl').forEach((el) => el.classList.remove('hl'));
+    document.querySelectorAll('#ch-table tbody tr.hl, #ch-table tbody tr.hl2').forEach((el) => el.classList.remove('hl', 'hl2'));
     if (!next) return;
     document.querySelector(`#ch-score-${bandId(next.band)} .ch-chip[data-ch="${next.ch}"]`)?.classList.add('hl');
-    const hits = new Set(Inspector.aps().filter((a) => a.band === next.band && onChannel(a, next.band, next.ch)).map((a) => a.bssid));
-    document.querySelectorAll('#ch-table tbody tr').forEach((tr) => tr.classList.toggle('hl', hits.has(tr.dataset.bssid)));
+    markRows(document.querySelectorAll('#ch-table tbody tr'), Inspector.aps(), next);
+  }
+
+  /** 表格行跟频谱同一套等级：主信道行 .hl（蓝），重叠行 .hl2（琥珀） */
+  function markRows(trs, aps, hv) {
+    const level = new Map(aps.map((a) => [a.bssid, hlLevel(a, hv.band, hv.ch)]));
+    trs.forEach((tr) => {
+      const l = level.get(tr.dataset.bssid) ?? 0;
+      tr.classList.toggle('hl', l === 2);
+      tr.classList.toggle('hl2', l === 1);
+    });
   }
 
   /** 频谱图上鼠标位置对应的信道：取中心频率最近、且在 ±10 MHz 内的候选信道 */
@@ -428,9 +465,8 @@ const Channels = (() => {
           </tr>`;
         })
         .join('');
-      const hits = hover ? new Set(aps.filter((a) => a.band === hover.band && onChannel(a, hover.band, hover.ch)).map((a) => a.bssid)) : null;
+      if (hover) markRows(tbody.querySelectorAll('tr'), aps, hover);
       tbody.querySelectorAll('tr').forEach((tr) => {
-        if (hits) tr.classList.toggle('hl', hits.has(tr.dataset.bssid));
         tr.addEventListener('click', () => {
           const ap = Inspector.aps().find((a) => a.bssid === tr.dataset.bssid);
           if (ap) Detail.show(ap);
@@ -468,5 +504,5 @@ const Channels = (() => {
     render();
   }
 
-  return { init, activate, render, analyze, profile, distanceOf, freqOf, spanOf, overlapRatio, highlight, onChannel, hover: () => hover };
+  return { init, activate, render, analyze, profile, distanceOf, freqOf, spanOf, overlapRatio, highlight, onChannel, hlLevel, hover: () => hover };
 })();

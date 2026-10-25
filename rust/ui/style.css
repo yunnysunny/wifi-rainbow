@@ -461,6 +461,8 @@ tbody td { padding: 6px 10px; white-space: nowrap; }
 .ch-chip.hl em { color: #9fd0ff; }
 #ch-table tbody tr.hl > td { background: #1d2a3d; }
 #ch-table tbody tr.hl > td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+#ch-table tbody tr.hl2 > td { background: #2a2414; }
+#ch-table tbody tr.hl2 > td:first-child { box-shadow: inset 3px 0 0 #fbbf24; }
 
 .ch-table-wrap { background: var(--panel); overflow: auto; padding-bottom: 6px; }
 #ch-table tbody tr { cursor: pointer; }

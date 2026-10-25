@@ -90,14 +90,21 @@ const SelfTest = (() => {
         const ch = Number(chip.dataset.ch);
         chip.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }));
         await frames();
-        const expect = Inspector.aps().filter((a) => a.band === band && Channels.onChannel(a, band, ch));
-        const drawn = Math.min(8, expect.length); // 频谱最多画 8 条
+        // 两级高亮：主信道（hits / tr.hl）与只重叠（overlaps / tr.hl2）分开数；频谱最多画 8 条
+        const expect = Inspector.aps().filter((a) => Channels.hlLevel(a, band, ch) === 2);
+        const expectOv = Inspector.aps().filter((a) => Channels.hlLevel(a, band, ch) === 1);
         const hits = cv._hl?.hits?.length ?? -1;
+        const ovs = cv._hl?.overlaps?.length ?? -1;
         const rows = document.querySelectorAll('#ch-table tbody tr.hl').length;
+        const rows2 = document.querySelectorAll('#ch-table tbody tr.hl2').length;
         const chipOn = chip.classList.contains('hl');
+        const drawnOk = hits + ovs <= 8 && hits <= expect.length && ovs <= expectOv.length;
+        const rowsOk = rows === expect.length && rows2 === expectOv.length;
+        if (!drawnOk || !rowsOk || !chipOn) log('error', `chhover ${band} ch${ch}: hits=${hits}/${expect.length} ov=${ovs}/${expectOv.length} rows=${rows}/${rows2} chip=${chipOn}`);
         chip.dispatchEvent(new MouseEvent('mouseleave', { bubbles: false }));
         await frames();
-        const cleared = cv._hl === null && document.querySelectorAll('#ch-table tbody tr.hl, .ch-chip.hl').length === 0;
+        const cleared = cv._hl === null && document.querySelectorAll('#ch-table tbody tr.hl, #ch-table tbody tr.hl2, .ch-chip.hl').length === 0;
+        if (!cleared) log('error', `chhover ${band}: highlight not cleared`);
         // 画布悬停：在该信道中心位置造一次 mousemove，应该命中同一个信道
         const g = cv._geom;
         const b = cv._bandInfo;
@@ -108,7 +115,8 @@ const SelfTest = (() => {
         const viaCanvas = Channels.hover()?.ch === ch && Channels.hover()?.band === band;
         cv.dispatchEvent(new MouseEvent('mouseleave'));
         await frames();
-        out.push(`${band}:ch${ch} expect=${expect.length} drawnHits=${hits}/${drawn} rowsHl=${rows} chipOn=${chipOn} cleared=${cleared} canvasHover=${viaCanvas} bars=${b.aps.length}`);
+        if (!viaCanvas) log('error', `chhover ${band}: canvas mousemove did not land on ch${ch}`);
+        out.push(`${band}:ch${ch} primary=${hits}/${expect.length} overlap=${ovs}/${expectOv.length} rows=${rows}+${rows2} chipOn=${chipOn} cleared=${cleared} canvasHover=${viaCanvas} bars=${b.aps.length}`);
       }
       log('info', `selftest chhover: ${out.join(' | ')}`);
     } catch (e) {

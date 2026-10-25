@@ -152,7 +152,7 @@ const Demo = (() => {
     } else if (view === 'chhover') {
       clickTab('channels');
       await frames();
-      Channels.highlight('2.4 GHz', 6);
+      Channels.highlight('2.4 GHz', 1);
     } else if (view === 'settings') {
       clickTab('settings');
     }
