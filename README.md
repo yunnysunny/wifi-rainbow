@@ -12,7 +12,7 @@ Rust + Tauri 2 + plain HTML/JS, no third-party runtime beyond the WebView2 that 
 
 Installer on the [Releases](https://github.com/yunnysunny/wifi-rainbow/releases) page: `WiFi-Rainbow_<version>_x64-setup.exe`. Per-user install into `%LOCALAPPDATA%\WiFi Rainbow\`, no administrator rights needed.
 
-Release binaries are signed as described in the [code signing policy](docs/CODE_SIGNING_POLICY.md).
+Release binaries are code-signed for free by [SignPath.io](https://about.signpath.io/) with a certificate issued by the [SignPath Foundation](https://signpath.org/); details in the [code signing policy](docs/CODE_SIGNING_POLICY.md).
 
 Requirements: Windows 10 / 11 x64, a wireless adapter, the [WebView2 runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (preinstalled on Windows 11).
 
