@@ -1,0 +1,205 @@
+{
+  "main": {
+    "id": "d1950b18bbe92aad",
+    "type": "split",
+    "children": [
+      {
+        "id": "c8bbc182e0ded7d4",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "1f31fc3df64e0991",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "docs/promo.zh-CN.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "promo.zh-CN"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "5789082891d25b91",
+    "type": "split",
+    "children": [
+      {
+        "id": "a0583f9bef7e71e3",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "68326c6ef5726030",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-folder-closed",
+              "title": "文件列表"
+            }
+          },
+          {
+            "id": "f53f7e676957b44e",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "搜索"
+            }
+          },
+          {
+            "id": "771de73db0d93a51",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-bookmark",
+              "title": "书签"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "e9d474392dbecc84",
+    "type": "split",
+    "children": [
+      {
+        "id": "16a62ea01bb234ba",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "5db9ed372bead37f",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "docs/promo.zh-CN.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "反向链接"
+            }
+          },
+          {
+            "id": "a38a8ddff4cc56fb",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "docs/promo.zh-CN.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "出链"
+            }
+          },
+          {
+            "id": "ca8b74f13f1a134f",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "标签"
+            }
+          },
+          {
+            "id": "8c595f8aa7cf1e19",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "添加笔记属性"
+            }
+          },
+          {
+            "id": "e032047865c7f259",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "docs/promo.zh-CN.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "大纲"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:打开快速切换": false,
+      "graph:查看关系图谱": false,
+      "canvas:新建白板": false,
+      "daily-notes:打开/创建今天的日记": false,
+      "templates:插入模板": false,
+      "command-palette:打开命令面板": false,
+      "bases:新建数据库": false
+    }
+  },
+  "active": "1f31fc3df64e0991",
+  "lastOpenFiles": [
+    "rust/target/debug/deps/wifi_rainbow.pdb",
+    "rust/target/debug/deps/wifi_rainbow.exe",
+    "rust/target/debug/deps/rustczsRAPW/wifi_rainbow-2.natvis",
+    "rust/target/debug/deps/rustczsRAPW/wifi_rainbow-1.natvis",
+    "rust/target/debug/deps/rustczsRAPW/wifi_rainbow-0.natvis",
+    "rust/target/debug/deps/rustczsRAPW/symbols.o",
+    "rust/target/debug/deps/rustczsRAPW/linker-arguments",
+    "rust/target/debug/deps/rustczsRAPW",
+    "rust/target/debug/incremental/wifi_rainbow-2v0xtjcr7ch9x/s-hnj5hbxdr8-12t2jpv-3tey6lghtbggwflprgnv75wp1/query-cache.bin",
+    "rust/target/debug/incremental/wifi_rainbow-2v0xtjcr7ch9x/s-hnj5hbxdr8-12t2jpv-3tey6lghtbggwflprgnv75wp1/work-products.bin",
+    "rust/target/debug/incremental/wifi_rainbow-2v0xtjcr7ch9x/s-hnj5hbxdr8-12t2jpv-3tey6lghtbggwflprgnv75wp1/f5dgfjfqw31wmuef608sdy5xz.o"
+  ]
+}
