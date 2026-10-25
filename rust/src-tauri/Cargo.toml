@@ -1,0 +1,18 @@
+[package]
+name = "wifi-rainbow"
+version = "0.1.0"
+edition = "2021"
+description = "Wi-Fi 分析工具（Inspector + 信道/干扰）"
+license = "MIT"
+repository = "https://github.com/yunnysunny/wifi-rainbow"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+wlan-core = { path = "../crates/wlan-core" }
+
+[features]
+default = []

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "主窗口默认权限：只给核心能力，外加改窗口标题（界面语言切换时用）",
+  "windows": ["main"],
+  "permissions": ["core:default", "core:window:allow-set-title"]
+}

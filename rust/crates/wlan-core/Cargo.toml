@@ -1,0 +1,17 @@
+[package]
+name = "wlan-core"
+version = "0.1.0"
+edition = "2021"
+description = "Windows Native Wifi 数据层：扫描、IE 解析、频段/信道推导"
+license = "MIT"
+repository = "https://github.com/yunnysunny/wifi-rainbow"
+
+[lib]
+name = "wlan_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "wlanscan"
+path = "src/main.rs"
+
+[dependencies]

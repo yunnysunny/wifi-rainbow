@@ -1,0 +1,147 @@
+# 构建 + 测试 + 打安装包。推 tag（v*）时额外创建 GitHub Release，
+# 并在配置了 SignPath 变量/密钥后把安装包送去签名。
+#
+# SignPath 要求：签名请求之前的所有 job 都必须跑在 GitHub 托管的 runner 上，
+# 安装包必须以 GitHub artifact 的形式提交（actions/upload-artifact v4+）。
+#
+# 需要在仓库里配置（Settings → Secrets and variables → Actions）：
+#   secrets.SIGNPATH_API_TOKEN          SignPath 的 CI user API token
+#   vars.SIGNPATH_ORGANIZATION_ID       SignPath 组织 ID
+#   vars.SIGNPATH_PROJECT_SLUG          项目 slug（默认 wifi-rainbow）
+#   vars.SIGNPATH_SIGNING_POLICY_SLUG   签名策略 slug（默认 release-signing）
+# 没配置时签名步骤自动跳过，Release 上挂的是未签名安装包。
+
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: build & test (windows)
+    runs-on: windows-latest
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      installer: ${{ steps.locate.outputs.installer }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: unit tests (changes.js)
+        run: node tests/changes.test.js
+
+      - name: syntax check all UI scripts
+        shell: bash
+        run: for f in rust/ui/*.js; do node --check "$f"; done
+
+      - name: clippy
+        working-directory: rust
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: build installer
+        working-directory: rust
+        run: npx --yes @tauri-apps/cli@2 build
+
+      - name: locate installer
+        id: locate
+        shell: bash
+        run: |
+          f=$(ls rust/target/release/bundle/nsis/*-setup.exe | head -1)
+          echo "installer=$f" >> "$GITHUB_OUTPUT"
+          echo "built: $f ($(stat -c %s "$f") bytes)"
+
+      - name: upload unsigned installer
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: WiFi-Rainbow-unsigned
+          path: rust/target/release/bundle/nsis/*-setup.exe
+          if-no-files-found: error
+
+  sign:
+    name: sign with SignPath
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') && vars.SIGNPATH_ORGANIZATION_ID != ''
+    runs-on: ubuntu-latest
+    outputs:
+      signed: ${{ steps.submit.outcome }}
+    steps:
+      - name: submit signing request
+        id: submit
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'wifi-rainbow' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
+          github-artifact-id: ${{ needs.build.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed
+
+      - name: upload signed installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: WiFi-Rainbow-signed
+          path: signed/**/*-setup.exe
+          if-no-files-found: error
+
+  release:
+    name: github release
+    needs: [build, sign]
+    # sign 被跳过（没配 SignPath）时也要发 Release，所以用 always() 再自己判断
+    if: always() && startsWith(github.ref, 'refs/tags/v') && needs.build.result == 'success' && needs.sign.result != 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - name: download signed installer
+        if: needs.sign.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: WiFi-Rainbow-signed
+          path: dist
+
+      - name: download unsigned installer
+        if: needs.sign.result != 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: WiFi-Rainbow-unsigned
+          path: dist
+
+      - name: create release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          f=$(find dist -name '*-setup.exe' | head -1)
+          signed="${{ needs.sign.result }}"
+          if [ "$signed" = "success" ]; then
+            note="Installer signed via SignPath.io (certificate by SignPath Foundation). See docs/CODE_SIGNING_POLICY.md."
+          else
+            note="**Unsigned build** — SmartScreen will warn on first run. See docs/CODE_SIGNING_POLICY.md."
+          fi
+          gh release create "${{ github.ref_name }}" "$f" \
+            --repo "${{ github.repository }}" \
+            --title "WiFi-Rainbow ${{ github.ref_name }}" \
+            --notes "$note" \
+            --generate-notes

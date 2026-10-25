@@ -1,0 +1,21 @@
+# Rust / Tauri
+/rust/target/
+/rust/src-tauri/gen/schemas/
+
+# 本地探针与截图：含真实邻居 SSID / BSSID 与桌面画面，不进公开仓库
+/probe/
+/screens/
+
+# Python
+__pycache__/
+*.pyc
+
+# 运行期产物
+*.log
+/rust/ui/*.map
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

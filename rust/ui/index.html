@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WiFi 彩虹</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-view="inspector">
+  <header class="bar">
+    <div class="brand">
+      <span class="dot"></span>
+      <strong data-i18n="app.name">WiFi 彩虹</strong>
+    </div>
+    <nav class="tabs">
+      <button class="tab" data-view="inspector" data-i18n="tab.inspector">Inspector</button>
+      <button class="tab" data-view="channels" data-i18n="tab.channels">信道</button>
+      <button class="tab" data-view="settings" data-i18n="tab.settings">设置</button>
+    </nav>
+    <div class="iface" id="iface">正在读取网卡…</div>
+    <div class="actions" id="inspector-actions">
+      <input id="filter" type="search" data-i18n-ph="bar.filter" placeholder="过滤 SSID / BSSID / 别名" />
+      <label class="toggle"><input id="group" type="checkbox" /> <span data-i18n="bar.group">按 SSID 分组</span></label>
+      <label class="toggle"><input id="auto" type="checkbox" checked /> <span data-i18n="bar.auto">自动刷新</span></label>
+      <button id="scan" class="primary" data-i18n="bar.scan">扫描一次</button>
+    </div>
+    <div class="actions export" id="export-actions">
+      <button id="export-csv" class="ghost" data-i18n-title="export.csv" title="导出当前列表为 CSV">CSV</button>
+      <button id="export-png" class="ghost" data-i18n-title="export.png" title="导出当前视图为 PNG">PNG</button>
+    </div>
+  </header>
+
+  <!-- ============================================================ Inspector -->
+  <main class="view active" id="view-inspector">
+    <section class="charts" id="charts">
+      <div class="chart" data-band="2.4 GHz">
+        <div class="chart-head"><span>2.4 GHz</span><em class="meta">—</em><button class="max-btn" data-max="b0" data-i18n-title="chart.max" title="放大预览（Esc 还原）">⛶</button></div>
+        <canvas></canvas>
+      </div>
+      <div class="chart" data-band="5 GHz">
+        <div class="chart-head"><span>5 GHz</span><em class="meta">—</em><button class="max-btn" data-max="b1" data-i18n-title="chart.max" title="放大预览（Esc 还原）">⛶</button></div>
+        <canvas></canvas>
+      </div>
+      <div class="chart" data-band="6 GHz">
+        <div class="chart-head"><span>6 GHz</span><em class="meta">—</em><button class="max-btn" data-max="b2" data-i18n-title="chart.max" title="放大预览（Esc 还原）">⛶</button></div>
+        <canvas></canvas>
+      </div>
+      <div class="tip" id="tip"></div>
+    </section>
+
+    <section class="history" id="history" data-panel="curve">
+      <div class="hist-head">
+        <span><span data-i18n="hist.title">信号历史</span> <em data-i18n="hist.window">最近 3 分钟</em></span>
+        <div class="legend" id="legend"></div>
+        <button id="hist-mode" class="ghost">事件</button>
+        <button id="clear-hist" class="ghost" data-i18n="hist.clear">清空历史</button>
+        <button class="max-btn" data-max="hist" data-i18n-title="chart.max" title="放大预览（Esc 还原）">⛶</button>
+      </div>
+      <canvas></canvas>
+      <ul class="events" id="events"></ul>
+    </section>
+
+    <section class="table-wrap">
+      <table id="ap">
+        <thead>
+          <tr>
+            <th data-key="ssid" data-i18n="th.ssid">SSID</th>
+            <th data-key="bssid" data-i18n="th.bssid">BSSID</th>
+            <th data-key="rssi" class="num" data-i18n="th.dbm">dBm</th>
+            <th data-key="quality" class="num" data-i18n="th.quality">Q%</th>
+            <th data-key="channel" class="num" data-i18n="th.channel">信道</th>
+            <th data-key="band" data-i18n="th.band">频段</th>
+            <th data-key="width_mhz" class="num" data-i18n="th.width">带宽</th>
+            <th data-key="phy" data-i18n="th.phy">PHY</th>
+            <th data-key="security" data-i18n="th.security">安全</th>
+            <th data-key="akm" data-i18n="th.akm">AKM</th>
+            <th data-key="stations" class="num" data-i18n="th.stations">客户端</th>
+            <th data-key="utilization" class="num" data-i18n="th.util">空口</th>
+            <th data-key="trend" class="num" data-i18n="th.trend">趋势</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty" id="empty" data-i18n="table.empty">还没有数据，点「扫描一次」。</div>
+    </section>
+
+    <aside class="detail" id="detail"></aside>
+  </main>
+
+  <!-- ============================================================ 信道 -->
+  <main class="view" id="view-channels">
+    <div class="ch-head">
+      <span id="ch-summary">—</span>
+      <button id="ch-refresh" class="ghost" data-i18n="ch.refresh">重新分析</button>
+    </div>
+    <div class="ch-body">
+      <section class="ch-band">
+        <div class="ch-band-head"><b>2.4 GHz</b><div class="ch-score" id="ch-score-24GHz"></div></div>
+        <canvas id="ch-spec-24GHz"></canvas>
+      </section>
+      <section class="ch-band">
+        <div class="ch-band-head"><b>5 GHz</b><div class="ch-score" id="ch-score-5GHz"></div></div>
+        <canvas id="ch-spec-5GHz"></canvas>
+      </section>
+      <section class="ch-band">
+        <div class="ch-band-head"><b>6 GHz</b><div class="ch-score" id="ch-score-6GHz"></div></div>
+        <canvas id="ch-spec-6GHz"></canvas>
+      </section>
+      <section class="ch-table-wrap">
+        <table id="ch-table">
+          <thead>
+            <tr>
+              <th data-i18n="ch.th.ssid">网络</th>
+              <th data-i18n="ch.th.bssid">BSSID</th>
+              <th data-i18n="ch.th.band">频段</th>
+              <th class="num" data-i18n="ch.th.channel">信道</th>
+              <th class="num" data-i18n="ch.th.width">带宽</th>
+              <th class="num" data-i18n="ch.th.dbm">dBm</th>
+              <th class="num" data-i18n="ch.th.same">同频</th>
+              <th class="num" data-i18n="ch.th.adj">邻频</th>
+              <th class="num" data-i18n="ch.th.sameInt">同频干扰</th>
+              <th class="num" data-i18n="ch.th.adjInt">邻频干扰</th>
+              <th class="num" data-i18n="ch.th.cir">CIR</th>
+              <th class="num" data-i18n="ch.th.dist">距离</th>
+              <th data-i18n="ch.th.src">主要干扰源</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </div>
+  </main>
+
+  <!-- ============================================================ 设置 -->
+  <main class="view" id="view-settings">
+    <div class="set-wrap">
+      <section class="set-card">
+        <h4 data-i18n="set.display">显示</h4>
+        <div class="hint" id="set-filtered" data-i18n="set.nodata">还没扫到数据</div>
+        <label class="set-row">
+          <span><span data-i18n="set.hidehidden">不显示隐藏 SSID 的网络</span><em data-i18n="set.hidehidden.hint">ssid 为空的 BSS，列表里现在显示为 &lt;hidden&gt;</em></span>
+          <input type="checkbox" id="set-hide-hidden" />
+        </label>
+        <label class="set-row">
+          <span><span data-i18n="set.minrssi">最低信号</span><em data-i18n="set.minrssi.hint">弱于这个值的 AP 不出现在列表、曲线和信道分析里</em></span>
+          <span class="set-range">
+            <input type="range" id="set-min-rssi" min="-100" max="-40" step="1" />
+            <b id="set-min-rssi-val" data-i18n="set.any">不限</b>
+          </span>
+        </label>
+        <div class="set-row">
+          <span><span data-i18n="set.bands">频段</span><em data-i18n="set.bands.hint">关掉的频段一律不参与</em></span>
+          <span class="set-bands" id="set-bands">
+            <label><input type="checkbox" data-band="2.4 GHz" /> 2.4 GHz</label>
+            <label><input type="checkbox" data-band="5 GHz" /> 5 GHz</label>
+            <label><input type="checkbox" data-band="6 GHz" /> 6 GHz</label>
+          </span>
+        </div>
+      </section>
+
+      <section class="set-card">
+        <h4 data-i18n="set.scan">扫描</h4>
+        <label class="set-row">
+          <span><span data-i18n="set.scansec">自动刷新间隔</span><em data-i18n="set.scansec.hint">顶栏那个「自动刷新」开着时才生效，只在 Inspector 视图扫描</em></span>
+          <span class="set-sec"><input type="number" id="set-scan-sec" min="1" max="60" step="1" /> <span data-i18n="set.sec">秒</span></span>
+        </label>
+        <label class="set-row">
+          <span><span data-i18n="set.iface">扫描网卡</span><em data-i18n="set.iface.hint">多块无线网卡时选一块；选中的网卡拔掉后自动退回全部</em></span>
+          <select id="set-iface" class="set-select"></select>
+        </label>
+      </section>
+
+      <section class="set-card">
+        <h4 data-i18n="set.list">列表</h4>
+        <label class="set-row">
+          <span><span data-i18n="set.group">按 SSID 分组</span><em data-i18n="set.group.hint">同名的多个 BSSID 折成一行，点开看成员；只有一个 BSSID 的 SSID 不成组</em></span>
+          <input type="checkbox" id="set-group" />
+        </label>
+        <div class="set-row">
+          <span><span data-i18n="set.watch">关注列表</span><em data-i18n="set.watch.hint">历史曲线默认画它们；在列表或详情里点 ☆ 加入</em></span>
+          <span class="set-chips" id="set-watch"></span>
+        </div>
+        <div class="set-row">
+          <span><span data-i18n="set.alias">别名</span><em data-i18n="set.alias.hint">在详情抽屉里给 SSID 起名；点一下这里的标签就删掉</em></span>
+          <span class="set-chips" id="set-aliases"></span>
+        </div>
+      </section>
+
+      <section class="set-card">
+        <h4 data-i18n="set.interface">界面</h4>
+        <label class="set-row">
+          <span><span data-i18n="set.lang">界面语言</span><em data-i18n="set.lang.hint">切换后立即生效，存在本机</em></span>
+          <select id="set-lang" class="set-select"></select>
+        </label>
+      </section>
+
+      <section class="set-card">
+        <h4 data-i18n="set.about">关于</h4>
+        <div class="set-about" data-i18n="set.about.text">
+          数据全部来自本机 wlanapi，不联网；设置存在 localStorage，换机器不会跟着走。
+        </div>
+        <button id="set-reset" class="ghost" data-i18n="set.reset">恢复默认设置</button>
+      </section>
+    </div>
+  </main>
+
+  <footer class="status" id="status" data-i18n="status.ready">就绪</footer>
+  <div class="errbox" id="errbox"></div>
+
+  <script src="i18n.js"></script>
+  <script src="common.js"></script>
+  <script src="changes.js"></script>
+  <script src="settings.js"></script>
+  <script src="inspector.js"></script>
+  <script src="detail.js"></script>
+  <script src="channels.js"></script>
+  <script src="selftest.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
