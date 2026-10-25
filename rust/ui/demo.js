@@ -153,6 +153,14 @@ const Demo = (() => {
       clickTab('channels');
       await frames();
       Channels.highlight('2.4 GHz', 1);
+    } else if (view === 'export') {
+      // 导出演示：先真导一张图表拼图（提示框会弹出来），再把 PNG 菜单打开，给手册截图用
+      clickTab('channels');
+      await frames();
+      await Inspector.exportPng('canvas');
+      // 导出弹的提示 6 秒就收，截图来不及；按住它（等同鼠标悬停）
+      document.querySelector('#toasts .toast')?.dispatchEvent(new MouseEvent('mouseenter'));
+      Inspector.pngMenuOpen(true);
     } else if (view === 'settings') {
       clickTab('settings');
     }

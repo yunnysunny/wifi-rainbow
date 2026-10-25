@@ -128,3 +128,67 @@ function setStatus(text) {
   const el = $('#status');
   if (el) el.textContent = text;
 }
+
+/**
+ * 右上角提示框。状态栏那一行太不起眼，导出完了用户看不见，所以成功 / 失败都弹一个。
+ *   Toast.show({ kind: 'ok'|'err', title, detail, action: { label, run } })
+ * ok 6 秒后自动收起，err 10 秒；鼠标悬着不收。返回元素，测试要查。
+ */
+const Toast = (() => {
+  const LIFE = { ok: 6000, err: 10000 };
+
+  function show({ kind = 'ok', title = '', detail = '', action = null }) {
+    const host = $('#toasts');
+    if (!host) return null;
+    const el = document.createElement('div');
+    el.className = `toast ${kind}`;
+    el.setAttribute('role', kind === 'err' ? 'alert' : 'status');
+    el.innerHTML =
+      `<span class="ico">${kind === 'err' ? '⚠' : '✓'}</span>` +
+      `<b></b>` +
+      `<button class="x" title="${esc(t('toast.close'))}">✕</button>` +
+      (detail ? `<span class="path"></span>` : '') +
+      (action ? `<button class="act"></button>` : '');
+    el.querySelector('b').textContent = title;
+    if (detail) el.querySelector('.path').textContent = detail;
+    let timer = null;
+    const close = () => {
+      if (!el.isConnected) return;
+      clearTimeout(timer);
+      el.classList.add('leaving');
+      el.addEventListener('animationend', () => el.remove(), { once: true });
+      setTimeout(() => el.remove(), 400); // 动画被禁用时兜底
+    };
+    const arm = () => {
+      clearTimeout(timer);
+      timer = setTimeout(close, LIFE[kind] ?? LIFE.ok);
+    };
+    el.querySelector('.x').addEventListener('click', close);
+    if (action) {
+      const btn = el.querySelector('.act');
+      btn.textContent = action.label;
+      btn.addEventListener('click', async () => {
+        try {
+          await action.run();
+        } catch (e) {
+          log('error', 'toast action failed: ' + e);
+        }
+        close();
+      });
+    }
+    el.addEventListener('mouseenter', () => clearTimeout(timer));
+    el.addEventListener('mouseleave', arm);
+    // 同时最多留 3 条，旧的先走
+    while (host.children.length >= 3) host.firstElementChild.remove();
+    host.appendChild(el);
+    arm();
+    el._close = close;
+    return el;
+  }
+
+  function clear() {
+    $$('#toasts .toast').forEach((el) => el.remove());
+  }
+
+  return { show, clear };
+})();

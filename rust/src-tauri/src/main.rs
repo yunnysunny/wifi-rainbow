@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod capture;
+
 use serde::Serialize;
 use std::io::Write;
 use std::path::PathBuf;
@@ -146,14 +148,7 @@ fn downloads_dir() -> PathBuf {
 /// 文件名只取 basename，防止前端传路径穿越。
 #[tauri::command]
 fn export_file(name: String, data: String, encoding: Option<String>) -> Result<String, String> {
-    let safe: String = name
-        .chars()
-        .map(|c| if r#"\/:*?"<>|"#.contains(c) { '_' } else { c })
-        .collect();
-    let safe = safe.trim().trim_matches('.').to_string();
-    if safe.is_empty() {
-        return Err("文件名为空".into());
-    }
+    let safe = safe_name(&name)?;
     let dir = downloads_dir();
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let path = dir.join(safe);
@@ -164,6 +159,53 @@ fn export_file(name: String, data: String, encoding: Option<String>) -> Result<S
     };
     std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
     Ok(path.to_string_lossy().into_owned())
+}
+
+/// 前端传来的文件名只留 basename，去掉 Windows 不允许的字符
+fn safe_name(name: &str) -> Result<String, String> {
+    let safe: String = name
+        .chars()
+        .map(|c| if r#"\/:*?"<>|"#.contains(c) { '_' } else { c })
+        .collect();
+    let safe = safe.trim().trim_matches('.').to_string();
+    if safe.is_empty() {
+        return Err("文件名为空".into());
+    }
+    Ok(safe)
+}
+
+/// 整窗口截图（含标题栏）存成 PNG 到「下载」目录，返回完整路径。
+/// 画布拼图走 export_file；这个是「所见即所得」的那条路。
+#[tauri::command]
+fn capture_window(window: tauri::Window, name: String) -> Result<String, String> {
+    let safe = safe_name(&name)?;
+    let dir = downloads_dir();
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let path = dir.join(safe);
+    let hwnd = window.hwnd().map_err(|e| e.to_string())?.0 as isize;
+    // 尺寸前端会写进 ui.log；这里只在失败时报错
+    capture::window_to_png(hwnd, &path)?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
+/// 在资源管理器里选中刚导出的文件。只接受导出目录下的路径，别的一律拒绝。
+#[tauri::command]
+fn reveal_file(path: String) -> Result<(), String> {
+    let p = PathBuf::from(&path);
+    let allowed = [downloads_dir(), app_dir().join("export")];
+    let canon = p.canonicalize().map_err(|e| e.to_string())?;
+    let ok = allowed
+        .iter()
+        .filter_map(|d| d.canonicalize().ok())
+        .any(|d| canon.starts_with(&d));
+    if !ok || !canon.is_file() {
+        return Err("不在导出目录里".into());
+    }
+    std::process::Command::new("explorer.exe")
+        .arg(format!("/select,{}", canon.display()))
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 // ---------------------------------------------------------------- 扫描
@@ -247,6 +289,8 @@ fn main() {
             scan_now,
             current_connection,
             export_file,
+            capture_window,
+            reveal_file,
             ui_log,
             selftest
         ])

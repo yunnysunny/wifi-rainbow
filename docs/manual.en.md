@@ -149,9 +149,13 @@ The model sums overlapping power only; it does not simulate CSMA contention. Tre
 ## 6. Export
 
 - **CSV** – the table as currently filtered and sorted (ungrouped), with the same columns as on screen plus alias, connected flag, vendor, frequency, cipher and scan time. UTF-8 with BOM, so Excel opens it correctly.
-- **PNG** – the current view as one image: in Inspector the three band charts and the history panel; in Channels the three spectra.
+- **PNG** – the button opens a small menu with two choices.
+  - **Charts only** – the canvases of the current view composed into one image: in Inspector the three band charts and the history panel; in Channels the three spectra. Score chips and the table are not included. Disabled on the Settings page, which has no charts.
+  - **Whole window** – a screenshot of the entire window including the title bar, exactly what you see (score chips, table and hover highlight included).
 
-Files are written to your *Downloads* folder; the status bar shows the full path.
+Files are written to your *Downloads* folder. When an export finishes, a notice appears in the bottom-right corner with the file path and a *Show in folder* button that selects the file in Explorer; the status bar shows the full path too. A failed export shows a notice with the reason.
+
+![The two PNG options, and the notice after an export](images/en-export.png)
 
 ## 7. Settings
 

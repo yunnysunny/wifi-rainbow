@@ -1053,16 +1053,32 @@ const Inspector = (() => {
     return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
   }
 
+  /** 导出成功：状态栏 + 右上角提示，提示里带「打开所在文件夹」 */
+  function exportDone(kind, path) {
+    setStatus(t('export.ok', { path }));
+    Toast.show({
+      kind: 'ok',
+      title: t(kind === 'csv' ? 'export.saved.csv' : 'export.saved.png'),
+      detail: path,
+      action: INVOKE ? { label: t('export.reveal'), run: () => INVOKE('reveal_file', { path }) } : null,
+    });
+  }
+
+  function exportFailed(kind, e) {
+    setStatus(t('export.fail', { e }));
+    Toast.show({ kind: 'err', title: t('export.failed'), detail: String(e) });
+    log('error', `export ${kind} failed: ${e}`);
+  }
+
   async function exportCsv() {
     if (!INVOKE) return setStatus(t('status.notauri'));
     try {
       const path = await INVOKE('export_file', { name: `wifi-${fileStamp()}.csv`, data: csvText(), encoding: null });
-      setStatus(t('export.ok', { path }));
+      exportDone('csv', path);
       log('info', `export csv: ${path} (${flatRows().length} rows)`);
       return path;
     } catch (e) {
-      setStatus(t('export.fail', { e }));
-      log('error', 'export csv failed: ' + e);
+      exportFailed('csv', e);
     }
   }
 
@@ -1131,20 +1147,80 @@ const Inspector = (() => {
     return out;
   }
 
-  async function exportPng() {
+  /**
+   * 导出 PNG。mode = 'canvas'：当前视图的画布拼成一张图（默认）；
+   * mode = 'window'：后端 PrintWindow 截整个窗口（含标题栏），所见即所得。
+   */
+  async function exportPng(mode = 'canvas') {
     if (!INVOKE) return setStatus(t('status.notauri'));
+    const view = document.body.dataset.view;
     try {
+      if (mode === 'window') {
+        // 等菜单收起、按钮态复原，再截，不然菜单会被截进去；上一次导出的提示框也先藏起来
+        const toasts = $('#toasts');
+        if (toasts) toasts.style.visibility = 'hidden';
+        try {
+          await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+          const path = await INVOKE('capture_window', { name: `wifi-${view}-window-${fileStamp()}.png` });
+          if (toasts) toasts.style.visibility = '';
+          exportDone('png', path);
+          log('info', `export png (window): ${path}`);
+          return path;
+        } finally {
+          if (toasts) toasts.style.visibility = '';
+        }
+      }
       const cv = composePng();
       if (!cv) throw new Error(t('export.nocanvas'));
       const data = cv.toDataURL('image/png').split(',')[1];
-      const path = await INVOKE('export_file', { name: `wifi-${document.body.dataset.view}-${fileStamp()}.png`, data, encoding: 'base64' });
-      setStatus(t('export.ok', { path }));
+      const path = await INVOKE('export_file', { name: `wifi-${view}-${fileStamp()}.png`, data, encoding: 'base64' });
+      exportDone('png', path);
       log('info', `export png: ${path} (${cv.width}x${cv.height}, ${Math.round(data.length * 0.75 / 1024)} KB)`);
       return path;
     } catch (e) {
-      setStatus(t('export.fail', { e }));
-      log('error', 'export png failed: ' + e);
+      exportFailed('png', e);
     }
+  }
+
+  // PNG 按钮弹菜单：图表拼图 / 整个窗口。设置页没有画布，拼图项禁用。
+  function pngMenuOpen(open) {
+    const menu = $('#png-menu');
+    const btn = $('#export-png');
+    if (!menu || !btn) return;
+    if (open) {
+      const hasCanvas = document.body.dataset.view !== 'settings';
+      const canvasItem = menu.querySelector('[data-mode="canvas"]');
+      if (canvasItem) canvasItem.disabled = !hasCanvas;
+    }
+    menu.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+    if (open) (menu.querySelector('button:not(:disabled)') || menu).focus?.();
+  }
+
+  function pngMenuInit() {
+    const menu = $('#png-menu');
+    const btn = $('#export-png');
+    if (!menu || !btn) return;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      pngMenuOpen(menu.hidden);
+    });
+    menu.addEventListener('click', (e) => {
+      const item = e.target.closest('[data-mode]');
+      if (!item || item.disabled) return;
+      e.stopPropagation();
+      pngMenuOpen(false);
+      exportPng(item.dataset.mode);
+    });
+    document.addEventListener('click', (e) => {
+      if (!menu.hidden && !menu.contains(e.target) && e.target !== btn) pngMenuOpen(false);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !menu.hidden) {
+        pngMenuOpen(false);
+        btn.focus();
+      }
+    });
   }
 
   // ------------------------------------------------------------ 初始化
@@ -1176,7 +1252,7 @@ const Inspector = (() => {
       if (ap) Detail.show(ap);
     });
     $('#export-csv')?.addEventListener('click', exportCsv);
-    $('#export-png')?.addEventListener('click', exportPng);
+    pngMenuInit();
     $('#status')?.addEventListener('click', toggleErrorBox);
 
     $$('#ap thead th').forEach((th) => {
@@ -1238,7 +1314,7 @@ const Inspector = (() => {
     toggleMax,
     setHistPanel,
     exportCsv,
-    exportPng,
+    exportPng, pngMenuOpen,
     csvText,
     composePng,
     groupStats,

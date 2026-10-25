@@ -577,20 +577,45 @@ const SelfTest = (() => {
       const rows = Inspector.flatRows().length;
       const bom = csv.charCodeAt(0) === 0xfeff;
       const cv = Inspector.composePng();
+      // PNG 菜单：点开有两项，设置页里「只导出图表」要禁用，Esc 关掉
+      const btn = document.querySelector('#export-png');
+      const menu = document.querySelector('#png-menu');
+      btn.click();
+      await frames();
+      const menuOpen = !menu.hidden && menu.querySelectorAll('[data-mode]').length === 2 && btn.getAttribute('aria-expanded') === 'true';
+      const canvasEnabled = !menu.querySelector('[data-mode="canvas"]').disabled;
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await frames();
+      const menuClosed = menu.hidden;
+      clickTab('settings');
+      await frames();
+      Inspector.pngMenuOpen(true);
+      const canvasDisabledInSettings = menu.querySelector('[data-mode="canvas"]').disabled;
+      Inspector.pngMenuOpen(false);
+      clickTab('inspector');
+      await frames();
+      if (!menuOpen || !canvasEnabled || !menuClosed || !canvasDisabledInSettings) {
+        log('error', `png menu: open=${menuOpen} canvas=${canvasEnabled} closed=${menuClosed} disabledInSettings=${canvasDisabledInSettings}`);
+      }
       let files = '';
       if (mode === 'export') {
         const p1 = await Inspector.exportCsv();
         const p2 = await Inspector.exportPng();
+        const toastAfterPng = document.querySelectorAll('#toasts .toast.ok').length;
         clickTab('channels');
         await frames();
         const p3 = await Inspector.exportPng();
+        const p4 = await Inspector.exportPng('window');
         clickTab('inspector');
-        files = ` files=[${p1} | ${p2} | ${p3}]`;
+        const toasts = document.querySelectorAll('#toasts .toast.ok').length;
+        if (!p4) log('error', 'export window capture returned nothing');
+        if (toastAfterPng < 1 || toasts < 1) log('error', `export toast missing: afterPng=${toastAfterPng} end=${toasts}`);
+        files = ` toasts=${toasts} files=[${p1} | ${p2} | ${p3} | ${p4}]`;
       }
       log(
         'info',
         `selftest export: csvLines=${lines.length} rows=${rows} ok=${lines.length === rows + 1} cols=${cols} th=${th}+6 bom=${bom} ` +
-          `png=${cv ? cv.width + 'x' + cv.height : 'null'}${files}`
+          `png=${cv ? cv.width + 'x' + cv.height : 'null'} menu=${menuOpen}/${menuClosed}/${canvasDisabledInSettings}${files}`
       );
     } catch (e) {
       log('error', 'export probe failed: ' + e);

@@ -26,7 +26,17 @@
     </div>
     <div class="actions export" id="export-actions">
       <button id="export-csv" class="ghost" data-i18n-title="export.csv" title="导出当前列表为 CSV">CSV</button>
-      <button id="export-png" class="ghost" data-i18n-title="export.png" title="导出当前视图为 PNG">PNG</button>
+      <button id="export-png" class="ghost" data-i18n-title="export.png" title="导出 PNG：图表拼图或整个窗口" aria-haspopup="menu" aria-expanded="false">PNG</button>
+      <div class="menu" id="png-menu" role="menu" hidden>
+        <button role="menuitem" data-mode="canvas">
+          <b data-i18n="export.menu.canvas">只导出图表</b>
+          <span data-i18n="export.menu.canvas.hint">概览：三张频段图 + 历史栏；信道：三张频谱</span>
+        </button>
+        <button role="menuitem" data-mode="window">
+          <b data-i18n="export.menu.window">整个窗口</b>
+          <span data-i18n="export.menu.window.hint">连标题栏一起，所见即所得</span>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -206,6 +216,7 @@
 
   <footer class="status" id="status" data-i18n="status.ready">就绪</footer>
   <div class="errbox" id="errbox"></div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
 
   <script src="i18n.js"></script>
   <script src="common.js"></script>

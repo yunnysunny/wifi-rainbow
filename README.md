@@ -25,7 +25,7 @@ Requirements: Windows 10 / 11 x64, a wireless adapter, the [WebView2 runtime](ht
 - Group by router: `Home` / `Home-5G` style multi-BSSID routers fold into one expandable row
 - The connected AP is marked and shows the negotiated auth / cipher / link rate
 - Aliases and a watch list (watched networks get history curves by default)
-- Export the table as CSV, the current view as PNG
+- Export the table as CSV; export PNG as charts only or the whole window
 
 **Channels**
 - Spectrum occupancy per band

@@ -48,7 +48,7 @@ const T = {
         ['events', 'Change tracking', 'Keeps three minutes of signal history per access point and turns the differences between scans into events: who appeared, who vanished, whose signal clearly dropped, who changed channel or width.'],
         ['conn', 'Your connection, for real', 'The access point you are connected to is marked on the charts and in the list, together with the authentication and cipher the system actually negotiated, the current link rate and quality. A router "supporting WPA3" and you "actually using WPA3" are two different things; this shows the latter.'],
         ['group', 'Grouping, aliases, watch list', 'The 2.4, 5 and 6 GHz radios of one router fold into a single row, so the list stays short. Give a network your own name, such as "Home router"; star the ones you check often and their curves are drawn by default.'],
-        ['export', 'Export', 'Save the current list as a CSV table with the same columns as on screen, or the current view as a PNG image. Both go to your Downloads folder.'],
+        ['export', 'Export', 'Save the current list as a CSV table with the same columns as on screen, or save a PNG: just the charts, or the whole window exactly as you see it. Both go to your Downloads folder, and a notice tells you where the file landed.'],
       ],
     },
     screens: {
@@ -102,7 +102,7 @@ const T = {
         ['events', '变化追踪', '记录最近 3 分钟每个接入点的信号曲线，并把两次扫描之间的变化记成一条条事件：谁新出现了、谁不见了、谁的信号明显掉了、谁换了信道或带宽。'],
         ['conn', '你真正连的是什么', '你当前连接的接入点会在图上和列表里都标出来，并显示系统实际协商出来的认证方式和加密算法、当前链路速率和质量。路由器「支持 WPA3」和你「真的在用 WPA3」是两回事，这里看的是后者。'],
         ['group', '分组、别名、关注列表', '同一台路由器的 2.4 GHz、5 GHz、6 GHz 几个信号会折叠成一行，列表不再被撑得老长。可以给网络起个自己的名字，比如「家里的路由」；给常看的网络打个星，它们的曲线就会默认画出来。'],
-        ['export', '导出', '当前列表可以导出成 CSV 表格（列和界面上一样），当前画面可以导出成一张 PNG 图片，都保存到「下载」文件夹。'],
+        ['export', '导出', '当前列表可以导出成 CSV 表格（列和界面上一样）；PNG 可以只导出图表，也可以把整个窗口原样截下来。都保存到「下载」文件夹，导出完会弹提示告诉你文件在哪。'],
       ],
     },
     screens: {
