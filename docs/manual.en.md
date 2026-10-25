@@ -14,7 +14,7 @@ The screenshots in this manual were taken in the built-in demo mode with a synth
 
 Requirements: Windows 10 or 11 (x64), a wireless adapter, and the Microsoft Edge WebView2 runtime (preinstalled on Windows 11; on Windows 10 [download it here](https://developer.microsoft.com/microsoft-edge/webview2/) if the program does not start).
 
-> **SmartScreen warning.** Release builds are signed through SignPath (see the [code signing policy](CODE_SIGNING_POLICY.md)). An unsigned development build, or a very new release that has not built up reputation yet, may trigger "Windows protected your PC". Click *More info* → *Run anyway*.
+> **SmartScreen warning.** Current releases are **not code-signed**: the project has applied to the SignPath Foundation's free signing program for open-source software and is waiting for approval (see the [code signing policy](CODE_SIGNING_POLICY.md)). Until then Windows may show "Windows protected your PC" on first run. Click *More info* → *Run anyway*. Even after signing starts, a brand-new release can trigger the same prompt until it has built up reputation.
 
 To uninstall, use *Settings → Apps → Installed apps*, or run `uninstall.exe` from the install directory. Your settings (aliases, watch list, filters) live in the WebView2 profile and survive a reinstall.
 

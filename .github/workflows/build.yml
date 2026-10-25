@@ -141,7 +141,7 @@ jobs:
           if [ "$signed" = "success" ]; then
             note="Code signing for this release is provided for free by SignPath.io, with a certificate issued by the SignPath Foundation. See docs/CODE_SIGNING_POLICY.md."
           else
-            note="**Unsigned build.** This project uses the SignPath Foundation for code signing of release builds (see docs/CODE_SIGNING_POLICY.md); this installer was built before signing was set up, so SmartScreen will warn on first run: choose More info → Run anyway."
+            note="**Unsigned build.** The project has applied to the SignPath Foundation's free code-signing program for open-source software (see docs/CODE_SIGNING_POLICY.md); until that is approved, installers are not signed and SmartScreen will warn on first run: choose More info → Run anyway."
           fi
           gh release create "${{ github.ref_name }}" "$f" \
             --repo "${{ github.repository }}" \

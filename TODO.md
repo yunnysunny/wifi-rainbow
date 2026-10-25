@@ -49,7 +49,7 @@
 
 - **4.1 安装包**：2026-10-24 第一次真打了包（`cargo tauri build`，tauri-cli 2.12.4）并装/跑/卸各验了一遍，见「6. 验收工具」末尾的打包记录。剩下没验的：WebView2 缺失提示、覆盖升级、代码签名、安装器侧图。
 - **4.2 单实例 + 托盘 + 开机自启**：没做。现在多开会各自扫一遍。需要 `tauri-plugin-single-instance`（crates.io 上是 `3.0.0-alpha`，跟 tauri 2.12 的配套版本要先核对）+ tauri 的 `tray-icon` 特性 + `tauri-plugin-autostart`。
-- **4.4 代码签名**：没有证书，安装包会被 SmartScreen 拦。
+- **4.4 代码签名**：2026-10-25 向 SignPath Foundation 提交申请。批准后要做：① 仓库 Secrets/Variables 填 `SIGNPATH_API_TOKEN` / `SIGNPATH_ORGANIZATION_ID` / `SIGNPATH_PROJECT_SLUG` / `SIGNPATH_SIGNING_POLICY_SLUG`；② 把下面几处「已申请、等待批准」的措辞改成「由 SignPath.io 签名」：`README.md` 下载段、`docs/README.zh-CN.md`、`docs/CODE_SIGNING_POLICY.md` 顶部状态、`docs/manual.*.md` 的 SmartScreen 段、`tools/build-docs.mjs` 的安装提示和页脚、`docs/promo.zh-CN.md`；③ 推一个新 tag 出签名包。
 
 ---
 

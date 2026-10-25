@@ -14,7 +14,7 @@ WiFi 彩虹是一个 Windows 上的 Wi-Fi 分析工具。它扫描周围的接�
 
 系统要求：Windows 10 / 11（x64）、一块无线网卡、Microsoft Edge WebView2 运行时（Windows 11 自带；Windows 10 上程序起不来的话到 [这里下载](https://developer.microsoft.com/microsoft-edge/webview2/)）。
 
-> **SmartScreen 提示。** 正式版通过 SignPath 签名（见 [代码签名策略](CODE_SIGNING_POLICY.md)）。未签名的开发版，或者刚发布、还没积累信誉的新版本，可能会弹「Windows 已保护你的电脑」。点「更多信息」→「仍要运行」即可。
+> **SmartScreen 提示。** 目前的发布版本**没有代码签名**：项目已向 SignPath Foundation 申请面向开源软件的免费签名，正在等待批准（见 [代码签名策略](CODE_SIGNING_POLICY.md)）。在此之前，首次运行可能会弹「Windows 已保护你的电脑」，点「更多信息」→「仍要运行」即可。签名启用之后，刚发布、还没积累信誉的新版本也可能弹同样的提示。
 
 卸载：「设置 → 应用 → 安装的应用」，或运行安装目录里的 `uninstall.exe`。你的设置（别名、关注列表、过滤条件）存在 WebView2 的用户数据里，重装后还在。
 

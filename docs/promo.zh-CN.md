@@ -92,7 +92,7 @@
 - 安装包：https://github.com/yunnysunny/wifi-rainbow/releases （`WiFi-Rainbow_<版本>_x64-setup.exe`，Windows 10 / 11 64 位）
 - 使用手册：仓库 `docs/` 目录里有中英文两份，带截图
 
-MIT 协议开源。正式版通过 SignPath Foundation 的免费开源签名服务签名；刚发布的版本在积累信誉之前，Windows 可能弹 SmartScreen 提示，点「更多信息」→「仍要运行」就行。
+MIT 协议开源。安装包目前还没有代码签名（已经向 SignPath Foundation 申请了面向开源项目的免费签名，等批准），所以首次运行 Windows 会弹 SmartScreen 提示，点「更多信息」→「仍要运行」就行。
 
 如果你也在折腾路由器摆位、换信道、或者纯粹想知道楼上楼下到底有多少个 Wi-Fi 在跟你抢信道，拿去用。有 bug 或者想法，GitHub 上开个 issue，或者评论区见。
 

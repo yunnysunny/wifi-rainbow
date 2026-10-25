@@ -12,7 +12,7 @@ Rust + Tauri 2 + 原生 HTML/JS，除了 Windows 自带的 WebView2 没有任何
 
 安装包在 [Releases](https://github.com/yunnysunny/wifi-rainbow/releases) 页面：`WiFi-Rainbow_<版本>_x64-setup.exe`，按用户安装到 `%LOCALAPPDATA%\WiFi Rainbow\`，不需要管理员权限。
 
-发布版本由 [SignPath.io](https://about.signpath.io/) 免费签名，证书来自 [SignPath Foundation](https://signpath.org/)；细节见 [代码签名策略](CODE_SIGNING_POLICY.md)。
+代码签名：项目已向 [SignPath Foundation](https://signpath.org/) 申请面向开源软件的免费签名。在申请批准之前，发布的安装包**没有签名**，首次运行会弹 SmartScreen 提示。细节与当前状态见 [代码签名策略](CODE_SIGNING_POLICY.md)。
 
 系统要求：Windows 10 / 11 x64，带无线网卡，已安装 [WebView2 运行时](https://developer.microsoft.com/microsoft-edge/webview2/)（Windows 11 自带）。
 

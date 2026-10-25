@@ -1,6 +1,8 @@
 # Code Signing Policy
 
-Free code signing on Windows provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
+> **Status (2026-10-25): application pending.** WiFi Rainbow has applied to the SignPath Foundation's free code-signing program for open-source projects. Releases published before the application is approved (including v0.1.0) are **not signed**. This page will be updated when signing is active.
+
+Free code signing on Windows will be provided by [SignPath.io](https://about.signpath.io/), with a certificate issued by the [SignPath Foundation](https://signpath.org/).
 
 This policy applies to the Windows installer (`WiFi-Rainbow_<version>_x64-setup.exe`) and the executable inside it (`wifi-rainbow.exe`) published on the [GitHub Releases](https://github.com/yunnysunny/wifi-rainbow/releases) page of this project.
 
