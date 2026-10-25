@@ -75,6 +75,10 @@
 
 ## 6. 验收工具（改完怎么证明真的对）
 
+- **演示模式**：selftest 文件里写 `demo:<视图>`（`demo:en-<视图>` 切英文），`ui/demo.js` 用一组合成网络（30 轮、倒推 3 分钟、带脚本化事件）驱动整个界面，之后真机扫描被冻结。手册截图全靠它；`demo:cleanup` 清掉它写进 localStorage 的别名 / 关注。
+- **窗口截图**：`tools/shot-window.ps1`（PrintWindow，只截主窗口，不含任务栏和输入法条；`-Scale 0.5` 给手册用）。
+- **文档站**：`npm run docs` 把 `docs/manual.*.md` 转成 `site/`，Cloudflare Pages 构建命令 `npm ci && npm run docs`、输出目录 `site`。
+
 - **selftest**：往 `%LOCALAPPDATA%\WiFiRainbow\selftest` 写一个词再启动，跑完探针后停在对应视图——`inspector` / `channels` / `detail` / `tip` / `max` / `settings` / `en` / `enset` / `nohidden` / **`group` / `events` / `conn` / `export`**。日志在 `%LOCALAPPDATA%\WiFiRainbow\ui.log`。**验完记得删掉标记文件**，否则每次启动都跑一遍。
 - **探针覆盖**：`channels`（AP 数、同/邻频对、每频段标签数）、`detail`（CIR/同邻频/距离）、`layout`（`rowH` + `colDelta` 列对齐）、`tip`（浮层是否落回自己那张图）、`arcs`（哪些弧被完全套住）、`lang`（切语言后界面 chrome 里中文字符数、网卡栏文案是否卡住）、`settings`（逐项生效 + 持久化 + 设置页几何）、`group`（组数/成员和/单行数/折叠展开行数/组行几何/点击折叠）、`changes`（构造序列的事件计数与阈值边界 + 抖动 0 次 + 真掉 1 次）、`events-panel`（面板切换）、`conn`（已连接 AP 的标记与抽屉）、`viewstate`（排序/过滤/面板持久化）、`alias+watch`（别名进表格与过滤、关注进曲线）、`export`（CSV 行列数、PNG 尺寸）、`max`（放大前后画布尺寸）。
 - **变更追踪单测**：`ui/changes.js` 不依赖 DOM，Node 里 `new Function(src + '; return Changes')()` 就能跑构造序列。

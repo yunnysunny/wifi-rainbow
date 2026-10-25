@@ -886,7 +886,7 @@ const Inspector = (() => {
 
   /** 扫一次。已经在扫就等那一轮结束（手动点「扫描一次」撞上自动刷新时不会丢请求，也不会并发两次）。 */
   function scanOnce() {
-    if (!INVOKE) return Promise.resolve(state.aps);
+    if (!INVOKE || state.frozen) return Promise.resolve(state.aps);
     if (state.inflight) return state.inflight;
     state.inflight = doScan().finally(() => {
       state.inflight = null;
@@ -948,10 +948,44 @@ const Inspector = (() => {
     return state.aps;
   }
 
+  /**
+   * 演示 / 测试用：不扫真机，直接塞一轮数据（可带过去的时间戳，用来一次性填满历史窗口）。
+   * 走的是和 doScan 一样的后半段：变更追踪、历史、重画、详情刷新。
+   */
+  function inject(aps, conn, at = Date.now()) {
+    state.frozen = true; // 之后的真机扫描一律不落地，演示数据不会被盖掉
+    state.aps = aps;
+    state.conn = conn || [];
+    for (const c of state.conn) if (!state.connSince.has(c.bssid)) state.connSince.set(c.bssid, at);
+    state.lastScan = new Date(at);
+    state.scans++;
+    state.changes.feed(aps, at);
+    pushHistory(at);
+    renderEvents._sig = null;
+    renderLegend._sig = null;
+    renderAll();
+    renderIface();
+    Detail.refresh();
+    if (document.body.dataset.view === 'channels') Channels.render();
+    setStatus(t('status.summary', { time: state.lastScan.toLocaleTimeString(), n: aps.length, rssi: aps.length ? Math.max(...aps.map((a) => a.rssi)) : '—' }));
+  }
+
+  function resetHistory() {
+    state.history.clear();
+    state.selected.clear();
+    state.userPicked = false;
+    state.changes.reset();
+    state.connSince.clear();
+    renderLegend._sig = null;
+    renderEvents._sig = null;
+  }
+
   function setAuto(on) {
     if (state.timer) clearInterval(state.timer);
     state.timer = null;
     state.autoOn = !!on;
+    const cb = $('#auto');
+    if (cb && cb.checked !== state.autoOn) cb.checked = state.autoOn;
     state.autoMs = Math.max(1, Settings.get().scanSec) * 1000;
     if (on) state.timer = setInterval(() => {
       if (document.body.dataset.view !== 'inspector') return;
@@ -1129,12 +1163,7 @@ const Inspector = (() => {
     });
     $('#group')?.addEventListener('change', (e) => Settings.set({ groupBy: e.target.checked ? 'ssid' : 'none' }));
     $('#clear-hist').addEventListener('click', () => {
-      state.history.clear();
-      state.selected.clear();
-      state.userPicked = false;
-      state.changes.reset();
-      renderLegend._sig = null;
-      renderEvents._sig = null;
+      resetHistory();
       drawHistory();
       renderTable();
       refreshHistModeLabel();
@@ -1247,5 +1276,8 @@ const Inspector = (() => {
     autoInterval: () => (state.timer ? state.autoMs : null),
     hist: () => state.history,
     colorFor,
+    inject,
+    resetHistory,
+    setAuto,
   };
 })();

@@ -293,7 +293,7 @@ const Channels = (() => {
         )
         .join('') +
         (b.best
-          ? `<span class="ch-best">${t(b.best.dfs ? 'ch.best.dfs' : 'ch.best', { ch: b.best.ch })} · ${t('ch.ifdbm', { v: b.best.ifDbm ?? t('ch.none') })}</span>`
+          ? `<span class="ch-best">${t(b.best.dfs ? 'ch.best.dfs' : 'ch.best', { ch: b.best.ch })} · ${b.best.ifDbm != null ? t('ch.ifdbm', { v: b.best.ifDbm }) : t('ch.ifnone')}</span>`
           : `<span class="ch-best">${t('ch.best.none')}</span>`);
     }
 

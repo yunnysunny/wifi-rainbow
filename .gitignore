@@ -19,3 +19,7 @@ __pycache__/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Node / docs site
+node_modules/
+/site/

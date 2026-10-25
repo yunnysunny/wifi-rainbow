@@ -47,7 +47,9 @@
     try {
       const selftestMode = await INVOKE('selftest');
       if (selftestMode !== null && selftestMode !== undefined && selftestMode !== false) {
-        await SelfTest.run(String(selftestMode) || 'channels');
+        const mode = String(selftestMode);
+        if (mode.startsWith('demo')) await Demo.run(mode.split(':')[1] || 'inspector');
+        else await SelfTest.run(mode || 'channels');
       }
     } catch (e) {
       log('error', 'selftest failed: ' + e);
