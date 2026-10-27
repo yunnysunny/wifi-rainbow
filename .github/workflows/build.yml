@@ -10,6 +10,13 @@
 #   vars.SIGNPATH_PROJECT_SLUG          项目 slug（默认 wifi-rainbow）
 #   vars.SIGNPATH_SIGNING_POLICY_SLUG   签名策略 slug（默认 release-signing）
 # 没配置时签名步骤自动跳过，Release 上挂的是未签名安装包。
+#
+# 微软商店：每次构建都会用 tools/pack-msix.ps1 打一个不签名的 MSIX，作为 artifact
+# WiFi-Rainbow-msix 上传（不挂到 Release：没签名的 MSIX 用户装不上，商店会重新签）。
+# 包身份默认取脚本里的 Partner Center 值，可用下面的变量覆盖（都不是机密，会写进清单）：
+#   vars.MSIX_IDENTITY_NAME             Package/Identity/Name
+#   vars.MSIX_PUBLISHER                 Package/Identity/Publisher（CN=...）
+#   vars.MSIX_PUBLISHER_DISPLAY_NAME    Package/Properties/PublisherDisplayName
 
 name: build
 
@@ -81,6 +88,27 @@ jobs:
         with:
           name: WiFi-Rainbow-unsigned
           path: rust/target/release/bundle/nsis/*-setup.exe
+          if-no-files-found: error
+
+      - name: pack MSIX (Microsoft Store)
+        shell: powershell
+        env:
+          MSIX_IDENTITY_NAME: ${{ vars.MSIX_IDENTITY_NAME }}
+          MSIX_PUBLISHER: ${{ vars.MSIX_PUBLISHER }}
+          MSIX_PUBLISHER_DISPLAY_NAME: ${{ vars.MSIX_PUBLISHER_DISPLAY_NAME }}
+        run: |
+          # 只传配置了的变量，其余用脚本默认值；exe 已由上面的 tauri build 生成
+          $a = @{}
+          if ($env:MSIX_IDENTITY_NAME) { $a.IdentityName = $env:MSIX_IDENTITY_NAME }
+          if ($env:MSIX_PUBLISHER) { $a.Publisher = $env:MSIX_PUBLISHER }
+          if ($env:MSIX_PUBLISHER_DISPLAY_NAME) { $a.PublisherDisplayName = $env:MSIX_PUBLISHER_DISPLAY_NAME }
+          & tools/pack-msix.ps1 @a
+
+      - name: upload MSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: WiFi-Rainbow-msix
+          path: rust/target/release/bundle/msix/*.msix
           if-no-files-found: error
 
   sign:
