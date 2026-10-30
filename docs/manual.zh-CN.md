@@ -171,6 +171,8 @@ WiFi 彩虹是一个 Windows 上的 Wi-Fi 分析工具。它扫描周围的接�
 | 按 SSID 分组 | 和顶栏那个开关是同一个。 |
 | 关注列表 / 别名 | 查看和删除。 |
 | 界面语言 | 中 / 英，立即生效，窗口标题也跟着变。 |
+| 主题 | 深色（默认）、浅色，或跟随系统。立即生效，窗口标题栏一起换；图表、导出的 PNG 也用对应配色。 |
+| 关闭窗口时最小化到托盘 | 开着时点 ✕ 不退出，窗口收进系统托盘，扫描照常。单击托盘图标还原窗口，右键菜单里「显示窗口 / 退出」。关掉后托盘图标随即消失。 |
 | 恢复默认设置 | 重置上面的开关。别名和关注列表保留。 |
 
 ## 8. 技巧与常见问题
@@ -187,7 +189,7 @@ WiFi 彩虹是一个 Windows 上的 Wi-Fi 分析工具。它扫描周围的接�
 
 **我的数据在哪？** 设置、别名、关注列表在程序的 WebView2 用户数据里；界面日志在 `%LOCALAPPDATA%\WiFiRainbow\ui.log`（1 MiB 轮转）。没有任何东西离开你的电脑。
 
-**演示模式 / 烟雾测试。** 往 `%LOCALAPPDATA%\WiFiRainbow\selftest` 文件里写 `demo:inspector`（或 `demo:channels`、`demo:en-detail` …）再启动，程序会用一组合成网络代替真机扫描。写 `inspector`、`channels`、`settings` … 则对真机网卡跑内置烟雾测试，结果记在 `ui.log`。用完删掉这个文件。
+**演示模式 / 烟雾测试。** 往 `%LOCALAPPDATA%\WiFiRainbow\selftest` 文件里写 `demo:inspector`（或 `demo:channels`、`demo:en-detail` …）再启动，程序会用一组合成网络代替真机扫描。写 `inspector`、`channels`、`settings` … 则对真机网卡跑内置烟雾测试，结果记在 `ui.log`。演示模式前缀 `en-` 切英文、`light-` 切浅色（如 `demo:light-channels`）。用完删掉这个文件。
 
 ## 9. 隐私
 

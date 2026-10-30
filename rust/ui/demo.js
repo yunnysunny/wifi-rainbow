@@ -2,8 +2,8 @@
 //
 // 用途：给手册截干净的图（不含真实邻居的 SSID / BSSID），以及在没有无线网卡的机器上看界面。
 // 触发：%LOCALAPPDATA%\WiFiRainbow\selftest 里写 `demo:<view>`，view 同 selftest 的停靠视图，
-// 前面可加 `en-` 切英文：demo:inspector / demo:group / demo:events / demo:detail / demo:tip /
-// demo:channels / demo:settings / demo:max / demo:en-inspector …
+// 前面可加 `en-` 切英文、`light-` 切浅色主题（可叠加）：demo:inspector / demo:group / demo:events /
+// demo:detail / demo:tip / demo:channels / demo:settings / demo:max / demo:en-inspector / demo:light-channels …
 // `demo:cleanup` 只清掉演示写进 localStorage 的别名 / 关注，不停靠。
 //
 // 数据集 30 轮、每 6 秒一轮、倒推 3 分钟喂进去，所以历史曲线一开始就是满的；
@@ -98,11 +98,21 @@ const Demo = (() => {
     let view = String(spec || 'inspector');
     if (view === 'cleanup') return cleanup();
     let lang = 'zh';
-    if (view.startsWith('en-')) {
-      lang = 'en';
-      view = view.slice(3);
+    let theme = null;
+    for (;;) {
+      if (view.startsWith('en-')) {
+        lang = 'en';
+        view = view.slice(3);
+      } else if (view.startsWith('light-')) {
+        theme = 'light';
+        view = view.slice(6);
+      } else if (view.startsWith('dark-')) {
+        theme = 'dark';
+        view = view.slice(5);
+      } else break;
     }
     I18n.set(lang);
+    if (theme) Settings.set({ theme });
     Inspector.setAuto(false);
     // 启动时那次真机扫描可能还在路上：等它落地再注入，否则演示数据会被它盖掉
     const t0 = Date.now();

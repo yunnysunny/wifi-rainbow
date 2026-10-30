@@ -26,10 +26,10 @@ const Detail = (() => {
     const fitted = fitCanvas(cv);
     if (!fitted) return;
     const { ctx, w, h } = fitted;
-    ctx.fillStyle = '#0d121b';
+    ctx.fillStyle = Theme.c('spark-bg');
     ctx.fillRect(0, 0, w, h);
     if (!pts || pts.length < 2) {
-      ctx.fillStyle = '#4b5566';
+      ctx.fillStyle = Theme.c('dim');
       ctx.font = '11px "Segoe UI", sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(t('dt.nohist'), w / 2, h / 2 + 4);
@@ -42,7 +42,7 @@ const Detail = (() => {
     const xOf = (t) => 3 + ((t - t0) / (t1 - t0)) * (w - 6);
     const yOf = (v) => 4 + ((max - v) / Math.max(1, max - min)) * (h - 8);
 
-    ctx.strokeStyle = '#1b2230';
+    ctx.strokeStyle = Theme.c('grid');
     ctx.lineWidth = 1;
     for (let i = 1; i < 4; i++) {
       const y = (h / 4) * i;

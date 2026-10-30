@@ -10,7 +10,7 @@ repository = "https://github.com/yunnysunny/wifi-rainbow"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon"] }
 serde = { version = "1", features = ["derive"] }
 wlan-core = { path = "../crates/wlan-core" }
 

@@ -5,7 +5,11 @@ mod capture;
 use serde::Serialize;
 use std::io::Write;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::{AppHandle, Manager, WindowEvent};
 
 // ---------------------------------------------------------------- Inspector DTO
 
@@ -208,6 +212,76 @@ fn reveal_file(path: String) -> Result<(), String> {
     Ok(())
 }
 
+// ---------------------------------------------------------------- 托盘
+
+const TRAY_ID: &str = "main";
+
+/// 「关闭时最小化到托盘」的开关。设置本体存在前端 localStorage，
+/// 启动和每次改动时前端都会用 set_close_to_tray 同步过来；关窗事件在这里查。
+#[derive(Default)]
+struct TrayState {
+    close_to_tray: AtomicBool,
+}
+
+/// 把主窗口拉回前台：从托盘里出来时窗口可能是隐藏的，也可能只是最小化的。
+fn show_main(app: &AppHandle) {
+    let Some(win) = app.get_webview_window("main") else { return };
+    let _ = win.show();
+    let _ = win.unminimize();
+    let _ = win.set_focus();
+}
+
+/// 建托盘图标：左键单击 / 双击还原窗口，右键菜单「显示窗口 / 退出」。
+/// 菜单文案跟界面语言走，由前端传进来；语言切换时整个重建一次。
+fn build_tray(app: &AppHandle, show_label: &str, quit_label: &str, tooltip: &str) -> tauri::Result<()> {
+    let _ = app.remove_tray_by_id(TRAY_ID);
+    let show = MenuItem::with_id(app, "show", show_label, true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", quit_label, true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&show, &PredefinedMenuItem::separator(app)?, &quit])?;
+    let mut builder = TrayIconBuilder::with_id(TRAY_ID)
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .tooltip(tooltip)
+        .on_menu_event(|app, ev| match ev.id().as_ref() {
+            "show" => show_main(app),
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, ev| match ev {
+            TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            }
+            | TrayIconEvent::DoubleClick { button: MouseButton::Left, .. } => show_main(tray.app_handle()),
+            _ => {}
+        });
+    if let Some(icon) = app.default_window_icon() {
+        builder = builder.icon(icon.clone());
+    }
+    builder.build(app)?;
+    Ok(())
+}
+
+/// 前端同步「关闭时最小化到托盘」：开着就确保托盘图标在（并按当前语言刷文案），关了就把图标撤掉。
+#[tauri::command]
+fn set_close_to_tray(
+    app: AppHandle,
+    state: tauri::State<'_, TrayState>,
+    enabled: bool,
+    show_label: String,
+    quit_label: String,
+    tooltip: String,
+) -> Result<(), String> {
+    state.close_to_tray.store(enabled, Ordering::Relaxed);
+    if enabled {
+        build_tray(&app, &show_label, &quit_label, &tooltip).map_err(|e| e.to_string())
+    } else {
+        let _ = app.remove_tray_by_id(TRAY_ID);
+        Ok(())
+    }
+}
+
 // ---------------------------------------------------------------- 扫描
 
 #[tauri::command]
@@ -284,6 +358,21 @@ fn current_connection() -> Result<Vec<ConnDto>, String> {
 
 fn main() {
     tauri::Builder::default()
+        .manage(TrayState::default())
+        .on_window_event(|window, event| {
+            // 开了「关闭时最小化到托盘」：点 ✕ 只是把窗口藏起来，扫描照常跑；真正退出走托盘菜单
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                let to_tray = window
+                    .app_handle()
+                    .state::<TrayState>()
+                    .close_to_tray
+                    .load(Ordering::Relaxed);
+                if to_tray && window.label() == "main" {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             list_interfaces,
             scan_now,
@@ -292,7 +381,8 @@ fn main() {
             capture_window,
             reveal_file,
             ui_log,
-            selftest
+            selftest,
+            set_close_to_tray
         ])
         .run(tauri::generate_context!())
         .expect("Tauri 启动失败");

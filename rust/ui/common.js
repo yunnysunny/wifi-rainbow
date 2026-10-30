@@ -16,6 +16,80 @@ window.addEventListener('unhandledrejection', (e) => log('error', `unhandled: ${
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
 
+/**
+ * 主题：dark / light / system。<html data-theme="dark|light"> 是实际生效的那个，样式表按它换变量；
+ * 画布代码拿不到 CSS 变量，统一走 Theme.c('grid') 读 --cv-* 变量（按主题缓存，切主题时清）。
+ *   Theme.apply('system')   设置项变了 / 启动时调；跟随系统时监听 prefers-color-scheme
+ *   Theme.c('axis')         画布颜色字符串，对应 --cv-axis
+ *   Theme.subscribe(fn)     实际明暗变了（含系统自己切换）时重画
+ * index.html 头部有一段内联脚本在样式表加载前就按 localStorage 把 data-theme 设好，避免启动闪一下深色。
+ */
+const Theme = (() => {
+  const MODES = ['dark', 'light', 'system'];
+  const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  let mode = 'dark';
+  let resolved = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+  let booted = false;
+  let cache = {};
+  const subs = [];
+
+  const resolve = (m) => (m === 'system' ? (mq && !mq.matches ? 'light' : 'dark') : m);
+
+  function c(name) {
+    if (!(name in cache)) {
+      const v = getComputedStyle(document.documentElement).getPropertyValue(`--cv-${name}`).trim();
+      cache[name] = v || '#808080';
+    }
+    return cache[name];
+  }
+
+  function rgb(name) {
+    return hexRgb(c(name));
+  }
+
+  /** 原生标题栏跟着走：固定主题就定死，跟随系统就交还系统（null）。浏览器里打开时没有 __TAURI__，静默跳过。 */
+  function syncNative() {
+    try {
+      const w = window.__TAURI__?.window?.getCurrentWindow?.();
+      const p = w?.setTheme?.(mode === 'system' ? null : resolved);
+      if (p && p.catch) p.catch(() => {});
+    } catch {}
+  }
+
+  function commit(force) {
+    const next = resolve(mode);
+    const changed = next !== resolved || document.documentElement.dataset.theme !== next;
+    if (!changed && !force) return;
+    resolved = next;
+    cache = {};
+    document.documentElement.dataset.theme = next;
+    syncNative();
+    if (!changed) return;
+    for (const fn of subs) {
+      try {
+        fn(next);
+      } catch (e) {
+        log('error', 'theme subscriber failed: ' + e);
+      }
+    }
+  }
+
+  if (mq && mq.addEventListener) {
+    mq.addEventListener('change', () => {
+      if (mode === 'system') commit(false);
+    });
+  }
+
+  function apply(m) {
+    mode = MODES.includes(m) ? m : 'dark';
+    // 第一次总要把原生标题栏同步一遍，哪怕 data-theme 已经被内联脚本设对了
+    commit(!booted);
+    booted = true;
+  }
+
+  return { apply, c, rgb, subscribe: (fn) => subs.push(fn), get: () => mode, resolved: () => resolved, MODES };
+})();
+
 function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
@@ -31,10 +105,10 @@ function ssidLabel(ssid) {
   return ssid ? String(ssid) : t('ch.hidden');
 }
 
-function hexAlpha(hex, alpha) {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
+/** 任意颜色加透明度。rssiColor() 对中间值给的是 rgb(...)，之前只按 #rrggbb 切片，
+ *  得到 rgba(NaN…) 被 canvas 忽略，弧和条就沿用上一笔的灰色。 */
+function hexAlpha(color, alpha) {
+  const [r, g, b] = hexRgb(color);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
@@ -84,7 +158,7 @@ function hexRgb(color) {
  * 色块上的文字该用深色还是浅色：把填充色按 alpha 混到背景上，
  * 再拿两个候选字色分别算 WCAG 对比度，取高的那个。
  */
-function inkOn(fill, alpha = 1, bg = [11, 14, 20]) {
+function inkOn(fill, alpha = 1, bg = Theme.rgb('bg')) {
   const rel = ([r, g, b]) => {
     const f = (c) => {
       const x = c / 255;

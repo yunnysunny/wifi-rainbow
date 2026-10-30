@@ -132,9 +132,9 @@ const Inspector = (() => {
     const rOf = (rssi) => Math.max(3, Math.min(plotH, ((rssi + 95) / 70) * plotH));
     container._geom = { band, spec, xOf, rOf, padL, padR, padT, w, h, baseline, plotW };
 
-    ctx.strokeStyle = '#232b3a';
+    ctx.strokeStyle = Theme.c('grid-strong');
     ctx.lineWidth = 1;
-    ctx.fillStyle = '#6b768c';
+    ctx.fillStyle = Theme.c('axis-2');
     ctx.font = '9px Consolas, monospace';
     ctx.textAlign = 'center';
     const labelEvery = spec.channels.length > 26 ? 8 : 1;
@@ -152,12 +152,12 @@ const Inspector = (() => {
     for (const level of [-30, -50, -70, -90]) {
       const y = baseline - rOf(level);
       if (y < padT - 1) continue;
-      ctx.strokeStyle = '#1b2230';
+      ctx.strokeStyle = Theme.c('grid');
       ctx.beginPath();
       ctx.moveTo(padL, y);
       ctx.lineTo(w - padR, y);
       ctx.stroke();
-      ctx.fillStyle = '#5b6579';
+      ctx.fillStyle = Theme.c('axis');
       ctx.fillText(String(level), padL - 4, y + 3);
     }
 
@@ -201,7 +201,7 @@ const Inspector = (() => {
       if (!connFor(it.ap.bssid)) continue;
       ctx.beginPath();
       ctx.arc(it.cx, baseline - it.ry, 3.2, 0, Math.PI * 2);
-      ctx.fillStyle = '#eef4fc';
+      ctx.fillStyle = Theme.c('dot');
       ctx.fill();
       ctx.strokeStyle = it.color;
       ctx.lineWidth = 1.5;
@@ -344,12 +344,12 @@ const Inspector = (() => {
     for (const level of [-30, -40, -50, -60, -70, -80, -90]) {
       const y = yOf(level);
       if (y < padT || y > bottom) continue;
-      ctx.strokeStyle = level === -60 ? '#243044' : '#1a2130';
+      ctx.strokeStyle = level === -60 ? Theme.c('grid-strong') : Theme.c('grid');
       ctx.beginPath();
       ctx.moveTo(padL, y);
       ctx.lineTo(padL + plotW, y);
       ctx.stroke();
-      ctx.fillStyle = '#5b6579';
+      ctx.fillStyle = Theme.c('axis');
       ctx.fillText(String(level), padL - 4, y + 3);
     }
 
@@ -357,12 +357,12 @@ const Inspector = (() => {
     for (let s = 0; s <= 180; s += 30) {
       const x = xOf(t0 + s * 1000);
       if (x < padL - 1) continue;
-      ctx.strokeStyle = '#1a2130';
+      ctx.strokeStyle = Theme.c('grid');
       ctx.beginPath();
       ctx.moveTo(x, padT);
       ctx.lineTo(x, bottom);
       ctx.stroke();
-      ctx.fillStyle = '#5b6579';
+      ctx.fillStyle = Theme.c('axis');
       ctx.fillText(s === 180 ? t('chart.now') : `-${180 - s}s`, Math.min(x, w - padR + 26), h - 4);
     }
 
@@ -372,7 +372,7 @@ const Inspector = (() => {
       .filter(([bssid, hist]) => hist && hist.pts.length && visSet.has(bssid));
 
     if (!selected.length) {
-      ctx.fillStyle = '#5b6579';
+      ctx.fillStyle = Theme.c('axis');
       ctx.textAlign = 'center';
       ctx.font = '12px "Segoe UI", sans-serif';
       ctx.fillText(t('chart.waiting'), padL + plotW / 2, padT + plotH / 2);
@@ -438,7 +438,7 @@ const Inspector = (() => {
     legend.innerHTML = entries
       .map((e) => {
         const on = state.selected.has(e.bssid);
-        const color = on ? colorFor(e.bssid) : '#3b4457';
+        const color = on ? colorFor(e.bssid) : 'var(--dim)';
         const star = Settings.isWatched(e.ssid) ? '★ ' : '';
         return `<button class="chip${on ? ' on' : ''}" data-bssid="${e.bssid}" style="--c:${color}">
           <i></i>${star}${esc(truncate(Settings.displayName(e.ssid), 14))}<span>${e.last ?? '—'}</span>
@@ -1111,19 +1111,19 @@ const Inspector = (() => {
     out.width = W;
     out.height = H;
     const ctx = out.getContext('2d');
-    ctx.fillStyle = '#10131a';
+    ctx.fillStyle = Theme.c('bg');
     ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#dfe6f3';
+    ctx.fillStyle = Theme.c('fg');
     ctx.font = `${Math.round(13 * dpr)}px "Segoe UI", "Microsoft YaHei UI", sans-serif`;
     ctx.textBaseline = 'middle';
     const title = `${t('app.name')} · ${view === 'channels' ? t('tab.channels') : t('tab.inspector')} · ${(state.lastScan || new Date()).toLocaleString()} · ${ifaceText()}`;
     ctx.fillText(title, pad, pad + titleH / 2);
     let y = pad + titleH;
     const drawOne = (s, x) => {
-      ctx.fillStyle = '#8b96ab';
+      ctx.fillStyle = Theme.c('muted');
       ctx.font = `${Math.round(11 * dpr)}px "Segoe UI", "Microsoft YaHei UI", sans-serif`;
       ctx.fillText(s.label || '', x, y + labelH / 2);
-      ctx.fillStyle = '#161b25';
+      ctx.fillStyle = Theme.c('panel');
       ctx.fillRect(x, y + labelH, s.cv.width, s.cv.height);
       ctx.drawImage(s.cv, x, y + labelH);
     };

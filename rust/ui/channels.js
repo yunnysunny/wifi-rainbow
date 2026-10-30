@@ -172,7 +172,7 @@ const Channels = (() => {
     return onChannel(ap, band, ch) ? 1 : 0;
   }
 
-  const HL_PRIMARY = '#4aa3ff'; // 和悬停竖带 / 评分标签同一个蓝
+  const HL_PRIMARY = () => Theme.c('hl'); // 和悬停竖带 / 评分标签同一个蓝；跟主题走所以是函数
   const HL_OVERLAP = '#fbbf24';
 
   function drawSpectrum(cv, bandInfo) {
@@ -199,26 +199,26 @@ const Channels = (() => {
     cv._geom = { xOf, padL, padR, padT, baseline, w, h, plotW };
     if (hl != null) {
       const c = freqOf(bandInfo.band, hl);
-      ctx.fillStyle = 'rgba(74, 163, 255, 0.10)';
+      ctx.fillStyle = Theme.c('hl-band');
       ctx.fillRect(xOf(c - 10), padT - 2, xOf(c + 10) - xOf(c - 10), baseline - padT + 2);
     }
 
     // 底：候选信道的浅色刻度
-    ctx.strokeStyle = '#1b2230';
+    ctx.strokeStyle = Theme.c('grid');
     ctx.lineWidth = 1;
-    ctx.fillStyle = '#5b6579';
+    ctx.fillStyle = Theme.c('axis');
     ctx.font = '9px Consolas, monospace';
     ctx.textAlign = 'center';
     const labelEvery = spec.chans.length > 26 ? 6 : 2;
     spec.chans.forEach((ch, i) => {
       const x = xOf(freqOf(bandInfo.band, ch));
-      ctx.strokeStyle = ch === hl ? '#4aa3ff' : '#1b2230';
+      ctx.strokeStyle = ch === hl ? Theme.c('hl') : Theme.c('grid');
       ctx.beginPath();
       ctx.moveTo(x, padT);
       ctx.lineTo(x, baseline);
       ctx.stroke();
       if (i % labelEvery === 0 || ch === hl) {
-        ctx.fillStyle = ch === hl ? '#9fd0ff' : '#5b6579';
+        ctx.fillStyle = ch === hl ? Theme.c('hl-text') : Theme.c('axis');
         ctx.font = ch === hl ? 'bold 9px Consolas, monospace' : '9px Consolas, monospace';
         ctx.fillText(String(ch), x, h - 5);
       }
@@ -227,7 +227,7 @@ const Channels = (() => {
 
     if (!aps.length) {
       cv._hl = null;
-      ctx.fillStyle = '#4b5566';
+      ctx.fillStyle = Theme.c('dim');
       ctx.font = '12px "Segoe UI", sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(t('ch.noap'), padL + plotW / 2, padT + plotH / 2);
@@ -249,14 +249,14 @@ const Channels = (() => {
       const level = hl == null ? -1 : hlLevel(ap, bandInfo.band, hl);
       const hit = level === 2;
       const dim = level === 0;
-      const fillHex = level === 2 ? HL_PRIMARY : level === 1 ? HL_OVERLAP : color;
+      const fillHex = level === 2 ? HL_PRIMARY() : level === 1 ? HL_OVERLAP : color;
       const fillA = level === 2 ? 0.92 : level === 1 ? 0.85 : dim ? 0.18 : 0.75;
       ctx.fillStyle = hexAlpha(fillHex, fillA);
       ctx.beginPath();
       const r = Math.min(3, bh / 2);
       ctx.roundRect ? ctx.roundRect(x0, y, Math.max(3, x1 - x0), bh, r) : ctx.rect(x0, y, Math.max(3, x1 - x0), bh);
       ctx.fill();
-      ctx.strokeStyle = level === 2 ? '#dbeeff' : level === 1 ? HL_OVERLAP : hexAlpha(color, dim ? 0.3 : 0.95);
+      ctx.strokeStyle = level === 2 ? Theme.c('hl-stroke') : level === 1 ? HL_OVERLAP : hexAlpha(color, dim ? 0.3 : 0.95);
       ctx.lineWidth = hit ? 1.5 : 1;
       ctx.stroke();
       jobs.push({ x0, x1, y, bh, color, ap, hit, dim, level, fillHex, fillA });
@@ -265,7 +265,7 @@ const Channels = (() => {
     // 第二遍才写标签：块够宽写在块里（字色按块色算），不够宽贴到块外并垫一块深色底衬。
     // 之前边画边写，窄块回退成「块内深色字」，而字其实落在块外的深色背景上——等于隐形。
     const chipBg = (x, cy, tw, fs) => {
-      ctx.fillStyle = 'rgba(9,13,20,0.82)';
+      ctx.fillStyle = Theme.c('chip-bg');
       const hh = fs + 4;
       if (ctx.roundRect) {
         ctx.beginPath();
@@ -311,7 +311,7 @@ const Channels = (() => {
         if (lx + tw > w - padR - 2) lx = x0 - 6 - tw;
         if (lx < padL || lx + tw > w - padR - 2) lx = Math.max(padL, Math.min(x1 + 6, w - padR - 3 - tw));
         chipBg(lx, ty, tw, fs);
-        ctx.fillStyle = '#dbe4f3';
+        ctx.fillStyle = Theme.c('chip-text');
         ctx.fillText(text, lx, ty);
       }
       labeled++;
@@ -340,12 +340,12 @@ const Channels = (() => {
       ctx.textBaseline = 'alphabetic';
       const tw = ctx.measureText(txt).width;
       chipBg(w - padR - 2 - tw, padT + 7, tw, 10);
-      ctx.fillStyle = '#9fd0ff';
+      ctx.fillStyle = Theme.c('hl-text');
       ctx.fillText(txt, w - padR - 2, padT + 11);
     }
 
     if (hidden > 0) {
-      ctx.fillStyle = '#7d889c';
+      ctx.fillStyle = Theme.c('note');
       ctx.font = '10px "Segoe UI", "Microsoft YaHei UI", sans-serif';
       ctx.textAlign = 'right';
       ctx.fillText(t('ch.more', { n: hidden }), w - padR - 2, h - 4);

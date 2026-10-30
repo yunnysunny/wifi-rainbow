@@ -31,6 +31,14 @@
     Channels.init();
     Inspector.refreshIface();
 
+    // 主题实际明暗变了（设置里切，或跟随系统时系统自己切了）：画布颜色是 JS 里读的，得重画
+    Theme.subscribe(() => {
+      Inspector.renderAll();
+      if (document.body.dataset.view === 'channels') Channels.render();
+      Detail.refresh();
+      log('info', `theme -> ${Theme.get()} (${Theme.resolved()})`);
+    });
+
     // 切语言：静态节点由 I18n 自己换，动态文案靠重画
     I18n.subscribe(() => {
       Inspector.refreshIface();

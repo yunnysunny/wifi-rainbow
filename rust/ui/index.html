@@ -1,9 +1,17 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WiFi 彩虹</title>
+  <!-- 样式表加载前就按已保存的主题设好 data-theme，浅色用户启动时不会先闪一下深色；正式逻辑在 common.js 的 Theme -->
+  <script>
+    try {
+      var s = JSON.parse(localStorage.getItem('wifisurvey.settings.v1') || '{}');
+      var dark = s.theme === 'system' ? matchMedia('(prefers-color-scheme: dark)').matches : s.theme !== 'light';
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    } catch (e) {}
+  </script>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body data-view="inspector">
@@ -201,6 +209,14 @@
         <label class="set-row">
           <span><span data-i18n="set.lang">界面语言</span><em data-i18n="set.lang.hint">切换后立即生效，存在本机</em></span>
           <select id="set-lang" class="set-select"></select>
+        </label>
+        <label class="set-row">
+          <span><span data-i18n="set.theme">主题</span><em data-i18n="set.theme.hint">深色、浅色，或跟随系统；窗口标题栏一起换，立即生效</em></span>
+          <select id="set-theme" class="set-select"></select>
+        </label>
+        <label class="set-row">
+          <span><span data-i18n="set.tray">关闭窗口时最小化到托盘</span><em data-i18n="set.tray.hint">点 ✕ 不退出，窗口收进托盘、扫描照常；单击托盘图标还原，右键菜单里退出</em></span>
+          <input type="checkbox" id="set-close-tray" />
         </label>
       </section>
 

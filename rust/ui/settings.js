@@ -1,4 +1,4 @@
-// 设置：显示过滤、扫描节奏、分组/别名/关注列表、扫描网卡。存在 localStorage，下次启动沿用。
+// 设置：显示过滤、扫描节奏、分组/别名/关注列表、扫描网卡、主题、关闭进托盘。存在 localStorage，下次启动沿用。
 //
 // 过滤在这里集中定义（Settings.accept），Inspector.aps() 出口统一套用，
 // 所以表格、三频段图、历史图例、信道分析、详情抽屉看到的是同一份过滤后的数据集。
@@ -9,6 +9,7 @@ const Settings = (() => {
   const KEY = 'wifisurvey.settings.v1';
   const BANDS = ['2.4 GHz', '5 GHz', '6 GHz'];
   const GROUP_MODES = ['none', 'ssid'];
+  const THEMES = Theme.MODES; // dark / light / system
 
   const DEFAULTS = {
     hideHidden: false,          // 不显示隐藏 SSID（ssid 为空）
@@ -19,6 +20,8 @@ const Settings = (() => {
     aliases: {},                // ssid -> 别名
     watch: [],                  // 关注的 SSID：历史曲线默认勾选
     iface: '',                  // 扫描哪块网卡（GUID），空 = 全部
+    theme: 'dark',              // 主题：dark / light / system（跟随系统）
+    closeToTray: false,         // 点 ✕ 不退出，收进托盘（托盘图标由 Rust 侧按这个开关建/撤）
   };
 
   const cur = structuredCloneSafe(DEFAULTS);
@@ -43,6 +46,8 @@ const Settings = (() => {
       }
       if (Array.isArray(saved.watch)) cur.watch = saved.watch.filter((s) => typeof s === 'string');
       if (typeof saved.iface === 'string') cur.iface = saved.iface;
+      if (THEMES.includes(saved.theme)) cur.theme = saved.theme;
+      if (typeof saved.closeToTray === 'boolean') cur.closeToTray = saved.closeToTray;
     } catch (e) {
       log('error', 'settings load failed: ' + e);
     }
@@ -87,17 +92,40 @@ const Settings = (() => {
     if (Number.isFinite(patch.scanSec)) cur.scanSec = Math.min(60, Math.max(1, patch.scanSec));
     if (GROUP_MODES.includes(patch.groupBy)) cur.groupBy = patch.groupBy;
     if (typeof patch.iface === 'string') cur.iface = patch.iface;
+    if (THEMES.includes(patch.theme)) {
+      cur.theme = patch.theme;
+      Theme.apply(cur.theme);
+    }
+    let trayChanged = false;
+    if (typeof patch.closeToTray === 'boolean') {
+      cur.closeToTray = patch.closeToTray;
+      trayChanged = true;
+    }
     changed();
     render();
+    if (trayChanged) syncTray();
     log('info', `settings: ${summary()}`);
+  }
+
+  /** 把「关闭时最小化到托盘」同步给 Rust：开着就建托盘图标（菜单文案按当前语言），关了就撤。 */
+  function syncTray() {
+    if (!INVOKE) return;
+    INVOKE('set_close_to_tray', {
+      enabled: cur.closeToTray,
+      showLabel: t('tray.show'),
+      quitLabel: t('tray.quit'),
+      tooltip: t('app.name'),
+    }).catch((e) => log('error', 'tray sync failed: ' + e));
   }
 
   function reset() {
     // 别名和关注列表是用户辛苦标的，「恢复默认设置」不清它们
     const keep = { aliases: cur.aliases, watch: cur.watch };
     Object.assign(cur, structuredCloneSafe(DEFAULTS), keep);
+    Theme.apply(cur.theme);
     changed();
     render();
+    syncTray();
     log('info', 'settings: reset to defaults');
   }
 
@@ -143,6 +171,8 @@ const Settings = (() => {
       `aliases=${Object.keys(cur.aliases).length}`,
       `watch=${cur.watch.length}`,
       `iface=${cur.iface || 'all'}`,
+      `theme=${cur.theme}`,
+      `tray=${cur.closeToTray}`,
     ].join(' ');
   }
 
@@ -182,6 +212,15 @@ const Settings = (() => {
     renderIfaceSelect();
     const langSel = $('#set-lang');
     if (langSel) langSel.value = I18n.get();
+    const themeSel = $('#set-theme');
+    if (themeSel) {
+      // 选项文案跟语言走，所以每次 render 都重算一遍，变了才写回
+      const html = THEMES.map((id) => `<option value="${id}">${esc(t('theme.' + id))}</option>`).join('');
+      if (themeSel.innerHTML !== html) themeSel.innerHTML = html;
+      themeSel.value = cur.theme;
+    }
+    const trayCb = $('#set-close-tray');
+    if (trayCb) trayCb.checked = cur.closeToTray;
     const filtered = document.querySelector('#set-filtered');
     if (filtered) {
       const total = Inspector.apsAll().length;
@@ -217,9 +256,12 @@ const Settings = (() => {
 
   function init() {
     load();
+    Theme.apply(cur.theme);
     // 启动时就把设置页和顶栏开关同步成已保存的值；之前只在打开设置页或改动时同步，
     // 结果「按 SSID 分组」默认开着，顶栏复选框却显示没勾
     render();
+    // 托盘开关也要在启动时同步给 Rust：托盘图标和关窗拦截都在那边
+    syncTray();
 
     $('#set-hide-hidden').addEventListener('change', (e) => set({ hideHidden: e.target.checked }));
     $('#set-min-rssi').addEventListener('input', (e) => set({ minRssi: Number(e.target.value) }));
@@ -233,6 +275,8 @@ const Settings = (() => {
     $('#set-scan-sec').addEventListener('change', (e) => set({ scanSec: Number(e.target.value) || 5 }));
     $('#set-group')?.addEventListener('change', (e) => set({ groupBy: e.target.checked ? 'ssid' : 'none' }));
     $('#set-iface')?.addEventListener('change', (e) => set({ iface: e.target.value }));
+    $('#set-theme')?.addEventListener('change', (e) => set({ theme: e.target.value }));
+    $('#set-close-tray')?.addEventListener('change', (e) => set({ closeToTray: e.target.checked }));
     $('#set-reset').addEventListener('click', reset);
 
     const langSel = $('#set-lang');
@@ -241,6 +285,10 @@ const Settings = (() => {
       langSel.value = I18n.get();
       langSel.addEventListener('change', (e) => I18n.set(e.target.value));
     }
+    // 切语言：托盘菜单文案要跟着换，开着托盘时重建一次
+    I18n.subscribe(() => {
+      if (cur.closeToTray) syncTray();
+    });
 
     // 设置变了就让两个视图重新出图
     subscribe(() => {
@@ -256,9 +304,9 @@ const Settings = (() => {
   }
 
   return {
-    init, activate, render, renderIfaceSelect,
+    init, activate, render, renderIfaceSelect, syncTray,
     get: () => cur, set, reset, accept, subscribe, summary,
     alias, setAlias, displayName, isWatched, toggleWatch, watchList: () => [...cur.watch],
-    BANDS, DEFAULTS,
+    BANDS, THEMES, DEFAULTS,
   };
 })();

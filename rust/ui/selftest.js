@@ -1,6 +1,8 @@
 // 烟雾测试：Inspector 实时扫描 + 信道/AP 详情 + 分组/变更/连接/视图状态/导出探针。
 // 由 %LOCALAPPDATA%\WiFiRainbow\selftest 标记文件触发；文件内容可指定最后停在哪个视图：
 // inspector / channels / detail / tip / max / settings / en / enset / nohidden / group / events / conn / export
+// tray：开着「关闭时最小化到托盘」停在设置页，用来手工验证点 ✕ 进托盘、托盘菜单还原/退出；
+// 验完在设置里关掉，或把标记文件写成 trayoff 再启动一次（只把那个开关关掉）。
 // （工程文件 / 报告 / 对比 / Survey 相关用例已随功能移除，见 archive-ui/）
 
 const SelfTest = (() => {
@@ -330,6 +332,37 @@ const SelfTest = (() => {
       out.push(
         `persist+ui: stored=${saved.hideHidden}/${saved.minRssi}/${saved.bands?.['6 GHz']}/${saved.scanSec}s ui一致=${uiSame} 可见=${Inspector.aps().length}`
       );
+
+      // 6) 主题：切浅色后 data-theme、画布用色、设置页下拉都得跟着变；再切回原值
+      const prevTheme = Settings.get().theme;
+      const gridDark = Theme.c('grid');
+      Settings.set({ theme: 'light' });
+      await frames();
+      const lightOk =
+        document.documentElement.dataset.theme === 'light' &&
+        Theme.c('grid') !== gridDark &&
+        $('#set-theme')?.value === 'light' &&
+        getComputedStyle(document.body).backgroundColor !== 'rgb(16, 19, 26)';
+      Settings.set({ theme: 'system' });
+      await frames();
+      const sysOk = ['dark', 'light'].includes(document.documentElement.dataset.theme) && Theme.get() === 'system';
+      Settings.set({ theme: prevTheme });
+      await frames();
+      out.push(`theme: light=${lightOk} system=${sysOk}(${Theme.resolved()}) back=${document.documentElement.dataset.theme}`);
+
+      // 7) 托盘开关：开 → Rust 建托盘图标；关 → 撤掉。只验命令能走通，图标本身在屏幕上肉眼看
+      const prevTray = Settings.get().closeToTray;
+      let trayOk = 'skipped';
+      if (INVOKE) {
+        try {
+          await INVOKE('set_close_to_tray', { enabled: true, showLabel: 'show', quitLabel: 'quit', tooltip: 'selftest' });
+          await INVOKE('set_close_to_tray', { enabled: prevTray, showLabel: t('tray.show'), quitLabel: t('tray.quit'), tooltip: t('app.name') });
+          trayOk = 'ok';
+        } catch (e) {
+          trayOk = 'fail:' + e;
+        }
+      }
+      out.push(`tray: invoke=${trayOk} setting=${prevTray} ui=${$('#set-close-tray')?.checked}`);
 
       // 设置页几何：重置按钮不能捧到折线以下（之前 4 张卡片单列时就掉了）
       clickTab('settings');
@@ -669,6 +702,11 @@ const SelfTest = (() => {
         clickTab('inspector');
         await frames();
         Inspector.toggleMax('b1');
+      } else if (mode === 'tray' || mode === 'trayoff') {
+        // 手工验证托盘：开着开关停在设置页（trayoff 只负责关掉）
+        Settings.set({ closeToTray: mode === 'tray' });
+        clickTab('settings');
+        log('info', `selftest tray: closeToTray=${Settings.get().closeToTray}`);
       } else if (mode === 'settings') {
         clickTab('settings');
       } else if (mode === 'en') {

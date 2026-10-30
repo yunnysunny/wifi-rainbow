@@ -188,18 +188,30 @@
       "bases:新建数据库": false
     }
   },
-  "active": "1f31fc3df64e0991",
+  "active": "68326c6ef5726030",
   "lastOpenFiles": [
-    "rust/target/debug/deps/wifi_rainbow.pdb",
-    "rust/target/debug/deps/wifi_rainbow.exe",
-    "rust/target/debug/deps/rustczsRAPW/wifi_rainbow-2.natvis",
-    "rust/target/debug/deps/rustczsRAPW/wifi_rainbow-1.natvis",
-    "rust/target/debug/deps/rustczsRAPW/wifi_rainbow-0.natvis",
-    "rust/target/debug/deps/rustczsRAPW/symbols.o",
-    "rust/target/debug/deps/rustczsRAPW/linker-arguments",
-    "rust/target/debug/deps/rustczsRAPW",
-    "rust/target/debug/incremental/wifi_rainbow-2v0xtjcr7ch9x/s-hnj5hbxdr8-12t2jpv-3tey6lghtbggwflprgnv75wp1/query-cache.bin",
-    "rust/target/debug/incremental/wifi_rainbow-2v0xtjcr7ch9x/s-hnj5hbxdr8-12t2jpv-3tey6lghtbggwflprgnv75wp1/work-products.bin",
-    "rust/target/debug/incremental/wifi_rainbow-2v0xtjcr7ch9x/s-hnj5hbxdr8-12t2jpv-3tey6lghtbggwflprgnv75wp1/f5dgfjfqw31wmuef608sdy5xz.o"
+    "docs/promo.zh-CN.ubb.txt",
+    "tools/md2ubb.mjs",
+    "tools/md2ubb.mjs.tmp.9576.38c0439dc730",
+    "rust/target/release/deps/wifi_rainbow.pdb",
+    "rust/target/release/deps/wifi_rainbow.exe",
+    "rust/target/release/deps/wifi_rainbow.regex_automata-c8f4e5a28790c1cc.regex_automata.dbe28756396383cf-cgu.10.rcgu.o.rcgu.o",
+    "rust/target/release/deps/wifi_rainbow.regex_automata-c8f4e5a28790c1cc.regex_automata.dbe28756396383cf-cgu.09.rcgu.o.rcgu.o",
+    "rust/target/release/deps/wifi_rainbow.tauri_utils-21bc27a8351ae2a0.tauri_utils.b4ff42865ce71937-cgu.14.rcgu.o.rcgu.o",
+    "rust/target/release/deps/wifi_rainbow.webview2_com-b69bc2755310b503.webview2_com.69b73696d2c1a7f8-cgu.02.rcgu.o.rcgu.o",
+    "rust/target/release/deps/wifi_rainbow.windows-c64b227733364b15.windows.76e83ca7acd0c5bc-cgu.04.rcgu.o.rcgu.o",
+    "rust/target/release/deps/wifi_rainbow.tauri-80a9eb98ad2f935a.tauri.b3133adea65f1b14-cgu.06.rcgu.o.rcgu.o",
+    "docs/images/promo-without-reflector.png",
+    "docs/images/promo-with-reflector.png",
+    "docs/images/promo-can-reflector.jpg",
+    "docs/images/without.png",
+    "docs/images/with.png",
+    "docs/images/wifi-inspector-window-20261025-161831.png",
+    "docs/images/wifi-inspector-window-20261025-161549.png",
+    "site/images/zh-export.png",
+    "site/images/en-export.png",
+    "docs/images/en-export.png",
+    "images.md",
+    "docs/promo.zh-CN.md"
   ]
 }

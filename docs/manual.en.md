@@ -171,6 +171,8 @@ Files are written to your *Downloads* folder. When an export finishes, a notice 
 | Group by SSID | Same as the toggle in the top bar. |
 | Watch list / Aliases | Review and remove entries. |
 | Language | Chinese or English; applies immediately, including the window title. |
+| Theme | Dark (default), light, or follow the system. Applies immediately, title bar included; charts and exported PNGs use the matching palette. |
+| Minimize to tray on close | When on, the close button hides the window in the system tray instead of quitting; scanning continues. Click the tray icon to restore, right-click for *Show window / Quit*. Turning it off removes the tray icon. |
 | Reset to defaults | Resets the switches above. Aliases and the watch list are kept. |
 
 ## 8. Tips and FAQ
@@ -187,7 +189,7 @@ Files are written to your *Downloads* folder. When an export finishes, a notice 
 
 **Where is my data?** Settings, aliases and the watch list are in the WebView2 profile of the app; the UI log is at `%LOCALAPPDATA%\WiFiRainbow\ui.log` (rotated at 1 MiB). Nothing leaves your machine.
 
-**Demo mode / smoke test.** Write `demo:inspector` (or `demo:channels`, `demo:en-detail`, …) into the file `%LOCALAPPDATA%\WiFiRainbow\selftest` and start the program: it shows a synthetic set of networks instead of scanning. Writing `inspector`, `channels`, `settings`, … runs the built-in smoke test against the real adapter and logs the results to `ui.log`. Delete the file afterwards.
+**Demo mode / smoke test.** Write `demo:inspector` (or `demo:channels`, `demo:en-detail`, …) into the file `%LOCALAPPDATA%\WiFiRainbow\selftest` and start the program: it shows a synthetic set of networks instead of scanning. Writing `inspector`, `channels`, `settings`, … runs the built-in smoke test against the real adapter and logs the results to `ui.log`. Demo prefixes: `en-` for English, `light-` for the light theme (e.g. `demo:light-channels`). Delete the file afterwards.
 
 ## 9. Privacy
 
