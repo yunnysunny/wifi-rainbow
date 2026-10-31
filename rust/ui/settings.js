@@ -26,6 +26,17 @@ const Settings = (() => {
 
   const cur = structuredCloneSafe(DEFAULTS);
   const subs = [];
+  let appVersion = '';
+
+  async function loadVersion() {
+    try {
+      // 由 Tauri 读取打包元数据，发布升级时无需手动同步界面版本。
+      appVersion = await window.__TAURI__?.app?.getVersion?.() || '';
+    } catch (e) {
+      log('error', 'app version failed: ' + e);
+    }
+    render();
+  }
 
   function structuredCloneSafe(o) {
     return JSON.parse(JSON.stringify(o));
@@ -198,6 +209,7 @@ const Settings = (() => {
   function render() {
     const el = $('#view-settings');
     if (!el) return;
+    $('#set-version').textContent = appVersion || t(INVOKE ? 'set.version.unavailable' : 'set.version.preview');
     $('#set-hide-hidden').checked = cur.hideHidden;
     $('#set-min-rssi').value = String(cur.minRssi);
     $('#set-min-rssi-val').textContent = cur.minRssi <= -100 ? t('set.any') : `${cur.minRssi} dBm`;
@@ -260,6 +272,7 @@ const Settings = (() => {
     // 启动时就把设置页和顶栏开关同步成已保存的值；之前只在打开设置页或改动时同步，
     // 结果「按 SSID 分组」默认开着，顶栏复选框却显示没勾
     render();
+    loadVersion();
     // 托盘开关也要在启动时同步给 Rust：托盘图标和关窗拦截都在那边
     syncTray();
 

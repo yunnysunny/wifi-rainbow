@@ -66,25 +66,25 @@
   --line-soft: #e8ecf3;
   --fg: #1b2432;
   --fg-2: #2f3b4d;
-  --muted: #5f6d84;
-  --muted-2: #6f7d93;
-  --hint: #7a8699;
+  --muted: #536178;
+  --muted-2: #58667b;
+  --hint: #58667b;
   --dim: #b5bfcf;
-  --dim-text: #8a95a8;
-  --accent: #2f7fe0;
+  --dim-text: #58667b;
+  --accent: #2468bb;
   --on-accent: #ffffff;
   --good: #15803d;
   --warn: #b45309;
   --bad: #dc2626;
   --rssi-ok: #4d7c0f;
-  --info: #1d6fd1;
+  --info: #1b60b3;
   --violet: #6d28d9;
   --input-bg: #ffffff;
   --hover: #eaeef5;
   --sel: #dbe8fb;
   --hl-bg: #dbe8fb;
   --hl-border: #9cc3f0;
-  --hl-text: #1d6fd1;
+  --hl-text: #1b60b3;
   --track: #dde3ec;
   --overlay: rgba(255, 255, 255, .96);
   --overlay-2: rgba(255, 255, 255, .98);
@@ -94,13 +94,13 @@
 
   --cv-grid: #e3e8f0;
   --cv-grid-strong: #d3dae6;
-  --cv-axis: #7a8699;
-  --cv-axis-2: #6b778c;
-  --cv-dim: #9aa5b8;
-  --cv-note: #6f7d93;
+  --cv-axis: #58667b;
+  --cv-axis-2: #58667b;
+  --cv-dim: #58667b;
+  --cv-note: #58667b;
   --cv-dot: #ffffff;
   --cv-hl: #2f7fe0;
-  --cv-hl-text: #1d6fd1;
+  --cv-hl-text: #1b60b3;
   --cv-hl-stroke: #1b4f91;
   --cv-hl-band: rgba(47, 127, 224, .10);
   --cv-chip-bg: rgba(255, 255, 255, .9);
@@ -156,7 +156,7 @@ body {
 .tab.active { background: var(--accent); color: var(--on-accent); font-weight: 600; }
 
 .iface {
-  color: var(--muted);
+  color: var(--fg-2);
   font-size: 12px;
   flex: 1;
   overflow: hidden;
@@ -176,6 +176,7 @@ input[type="search"], input[type="number"], select {
   font: inherit;
 }
 input[type="search"] { width: 190px; }
+input::placeholder { color: var(--hint); opacity: 1; }
 input:focus, select:focus { border-color: var(--accent); }
 
 .toggle { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
@@ -271,6 +272,8 @@ button.ghost:hover { color: var(--fg); }
 }
 .set-select:focus { border-color: var(--accent); }
 .set-about { font-size: 11.5px; color: var(--muted); line-height: 1.6; margin-bottom: 8px; }
+.set-version { display: flex; align-items: baseline; gap: 12px; margin: 0 0 8px; font-size: 12.5px; color: var(--fg-2); }
+.set-version b { font-weight: 600; font-variant-numeric: tabular-nums; }
 #set-reset { align-self: flex-start; }
 
 /* ------------------------------------------------------------ 三频段图 */
