@@ -10,6 +10,7 @@ const Settings = (() => {
   const BANDS = ['2.4 GHz', '5 GHz', '6 GHz'];
   const GROUP_MODES = ['none', 'ssid'];
   const THEMES = Theme.MODES; // dark / light / system
+  const PALETTES = Theme.PALETTES; // sea / classic
 
   const DEFAULTS = {
     hideHidden: false,          // 不显示隐藏 SSID（ssid 为空）
@@ -21,6 +22,7 @@ const Settings = (() => {
     watch: [],                  // 关注的 SSID：历史曲线默认勾选
     iface: '',                  // 扫描哪块网卡（GUID），空 = 全部
     theme: 'dark',              // 主题：dark / light / system（跟随系统）
+    palette: 'sea',             // 配色方案：sea（深海青 / 纸白暖色）/ classic（午夜蓝 / 冷白）
     closeToTray: false,         // 点 ✕ 不退出，收进托盘（托盘图标由 Rust 侧按这个开关建/撤）
   };
 
@@ -58,6 +60,7 @@ const Settings = (() => {
       if (Array.isArray(saved.watch)) cur.watch = saved.watch.filter((s) => typeof s === 'string');
       if (typeof saved.iface === 'string') cur.iface = saved.iface;
       if (THEMES.includes(saved.theme)) cur.theme = saved.theme;
+      if (PALETTES.includes(saved.palette)) cur.palette = saved.palette;
       if (typeof saved.closeToTray === 'boolean') cur.closeToTray = saved.closeToTray;
     } catch (e) {
       log('error', 'settings load failed: ' + e);
@@ -107,6 +110,10 @@ const Settings = (() => {
       cur.theme = patch.theme;
       Theme.apply(cur.theme);
     }
+    if (PALETTES.includes(patch.palette)) {
+      cur.palette = patch.palette;
+      Theme.applyPalette(cur.palette);
+    }
     let trayChanged = false;
     if (typeof patch.closeToTray === 'boolean') {
       cur.closeToTray = patch.closeToTray;
@@ -134,6 +141,7 @@ const Settings = (() => {
     const keep = { aliases: cur.aliases, watch: cur.watch };
     Object.assign(cur, structuredCloneSafe(DEFAULTS), keep);
     Theme.apply(cur.theme);
+    Theme.applyPalette(cur.palette);
     changed();
     render();
     syncTray();
@@ -183,6 +191,7 @@ const Settings = (() => {
       `watch=${cur.watch.length}`,
       `iface=${cur.iface || 'all'}`,
       `theme=${cur.theme}`,
+      `palette=${cur.palette}`,
       `tray=${cur.closeToTray}`,
     ].join(' ');
   }
@@ -231,6 +240,12 @@ const Settings = (() => {
       if (themeSel.innerHTML !== html) themeSel.innerHTML = html;
       themeSel.value = cur.theme;
     }
+    const palSel = $('#set-palette');
+    if (palSel) {
+      const html = PALETTES.map((id) => `<option value="${id}">${esc(t('palette.' + id))}</option>`).join('');
+      if (palSel.innerHTML !== html) palSel.innerHTML = html;
+      palSel.value = cur.palette;
+    }
     const trayCb = $('#set-close-tray');
     if (trayCb) trayCb.checked = cur.closeToTray;
     const filtered = document.querySelector('#set-filtered');
@@ -269,6 +284,7 @@ const Settings = (() => {
   function init() {
     load();
     Theme.apply(cur.theme);
+    Theme.applyPalette(cur.palette);
     // 启动时就把设置页和顶栏开关同步成已保存的值；之前只在打开设置页或改动时同步，
     // 结果「按 SSID 分组」默认开着，顶栏复选框却显示没勾
     render();
@@ -289,6 +305,7 @@ const Settings = (() => {
     $('#set-group')?.addEventListener('change', (e) => set({ groupBy: e.target.checked ? 'ssid' : 'none' }));
     $('#set-iface')?.addEventListener('change', (e) => set({ iface: e.target.value }));
     $('#set-theme')?.addEventListener('change', (e) => set({ theme: e.target.value }));
+    $('#set-palette')?.addEventListener('change', (e) => set({ palette: e.target.value }));
     $('#set-close-tray')?.addEventListener('change', (e) => set({ closeToTray: e.target.checked }));
     $('#set-reset').addEventListener('click', reset);
 

@@ -128,25 +128,50 @@ const Inspector = (() => {
     const plotW = w - padL - padR;
     const plotH = h - padT - padB;
     const baseline = padT + plotH;
-    const xOf = (freq) => padL + ((freq - spec.min) / (spec.max - spec.min)) * plotW;
+    // 5 GHz 横轴把 ch64→ch100 之间的空档压成一道缝（见 common.js bandAxis），刻度不再挤成一团
+    const axis = bandAxis(band, spec.min, spec.max);
+    const xOf = (freq) => padL + axis.pos(freq) * plotW;
+    const mhzPx = axis.mhzFrac * plotW;
     const rOf = (rssi) => Math.max(3, Math.min(plotH, ((rssi + 95) / 70) * plotH));
-    container._geom = { band, spec, xOf, rOf, padL, padR, padT, w, h, baseline, plotW };
+    container._geom = { band, spec, xOf, rOf, padL, padR, padT, w, h, baseline, plotW, mhzPx };
+
+    // 建议信道：信道中心 ±10 MHz 铺一条浅绿竖带（和图头的「建议 chN」徽标对应）
+    const rec = state.rec?.[band];
+    const recEl = container.querySelector('.rec');
+    if (recEl) {
+      recEl.textContent = rec ? t('chart.rec', { ch: rec.ch }) : '';
+      recEl.title = rec ? t('chart.rec.title', { ch: rec.ch, if: rec.ifDbm ?? t('ch.none') }) : '';
+      recEl.hidden = !rec;
+    }
+    if (rec && list.length) {
+      const c = channelToFreq(band, rec.ch);
+      const x0 = Math.max(padL, xOf(c - 10));
+      const x1 = Math.min(w - padR, xOf(c + 10));
+      ctx.fillStyle = hexAlpha(Theme.c('rec'), 0.13);
+      ctx.fillRect(x0, padT, Math.max(2, x1 - x0), baseline - padT);
+    }
 
     ctx.strokeStyle = Theme.c('grid-strong');
     ctx.lineWidth = 1;
     ctx.fillStyle = Theme.c('axis-2');
     ctx.font = '9px Consolas, monospace';
     ctx.textAlign = 'center';
-    const labelEvery = spec.channels.length > 26 ? 8 : 1;
-    spec.channels.forEach((ch, idx) => {
-      const x = xOf(channelToFreq(band, ch));
+    const ticks = [];
+    let prevFreq = null;
+    spec.channels.forEach((ch) => {
+      const f = channelToFreq(band, ch);
+      const x = xOf(f);
       if (x < padL - 1 || x > w - padR + 1) return;
       ctx.beginPath();
       ctx.moveTo(x, padT);
       ctx.lineTo(x, baseline);
       ctx.stroke();
-      if (idx % labelEvery === 0) ctx.fillText(String(ch), x, h - 4);
+      // 断轴后的第一个信道一定要标出来，不然看不出跳到了哪
+      ticks.push({ x, ch, force: prevFreq != null && f - prevFreq > 60 });
+      prevFreq = f;
     });
+    for (const tk of thinTicks(ticks, 17)) ctx.fillText(String(tk.ch), tk.x, h - 4);
+    for (const g of axis.gaps) drawAxisBreak(ctx, padL + g * plotW, baseline, Theme.c('axis'));
 
     ctx.textAlign = 'right';
     for (const level of [-30, -50, -70, -90]) {
@@ -166,7 +191,7 @@ const Inspector = (() => {
     const ordered = [...list].sort((a, b) => a.rssi - b.rssi).map((ap) => ({
       ap,
       cx: xOf(ap.freq_mhz),
-      rx: Math.max(3, (ap.width_mhz / 2) * (plotW / (spec.max - spec.min))),
+      rx: Math.max(3, (ap.width_mhz / 2) * mhzPx),
       ry: rOf(ap.rssi),
       color: rssiColor(ap.rssi),
     }));
@@ -232,7 +257,7 @@ const Inspector = (() => {
     for (const ap of visible()) {
       if (ap.band !== g.band) continue;
       const cx = g.xOf(ap.freq_mhz);
-      const rx = Math.max(3, (ap.width_mhz / 2) * (g.plotW / (g.spec.max - g.spec.min)));
+      const rx = Math.max(3, (ap.width_mhz / 2) * g.mhzPx);
       const ry = g.rOf(ap.rssi);
       const dx = (mx - cx) / rx;
       if (Math.abs(dx) > 1.05) continue;
@@ -329,21 +354,39 @@ const Inspector = (() => {
     if (!fitted) return;
     const { ctx, w, h } = fitted;
 
-    const padL = 34, padR = 74, padT = 10, padB = 16;
+    // 右边不再画末端标签（会被截断），当前值改在右侧图例里列出
+    const padL = 34, padR = 12, padT = 10, padB = 16;
     const plotW = w - padL - padR;
     const plotH = h - padT - padB;
     const bottom = padT + plotH;
     const now = Date.now();
     const t0 = now - HISTORY_WINDOW_MS;
 
+    const visSet = new Set(visible().map((a) => a.bssid));
+    const selected = [...state.selected]
+      .map((bssid) => [bssid, state.history.get(bssid)])
+      .filter(([bssid, hist]) => hist && hist.pts.length && visSet.has(bssid));
+
+    // 纵轴随数据缩放：曲线常年挤在 -40…-65 一窄条里，固定 -20…-100 等于浪费大半高度。
+    // 上下各留 4 dB 余量、取整到 10，跨度至少 30 dB，避免小抖动被放大成大起伏。
+    let top = -30, low = -90;
+    const vals = selected.flatMap(([, hist]) => hist.pts.map((p) => p.rssi));
+    if (vals.length) {
+      top = Math.min(-20, Math.ceil((Math.max(...vals) + 4) / 10) * 10);
+      low = Math.max(-100, Math.floor((Math.min(...vals) - 4) / 10) * 10);
+      if (top - low < 30) low = Math.max(-100, top - 30);
+      if (top - low < 30) top = low + 30;
+    }
+    state.histRange = [low, top];
     const xOf = (t) => padL + ((t - t0) / HISTORY_WINDOW_MS) * plotW;
-    const yOf = (rssi) => padT + ((rssi + 20) / -80) * plotH;
+    const yOf = (rssi) => padT + ((top - rssi) / (top - low)) * plotH;
 
     ctx.font = '9px Consolas, monospace';
     ctx.textAlign = 'right';
-    for (const level of [-30, -40, -50, -60, -70, -80, -90]) {
+    const step = top - low > 50 ? 20 : 10;
+    for (let level = top; level >= low; level -= step) {
       const y = yOf(level);
-      if (y < padT || y > bottom) continue;
+      if (y < padT - 1 || y > bottom + 1) continue;
       ctx.strokeStyle = level === -60 ? Theme.c('grid-strong') : Theme.c('grid');
       ctx.beginPath();
       ctx.moveTo(padL, y);
@@ -363,13 +406,9 @@ const Inspector = (() => {
       ctx.lineTo(x, bottom);
       ctx.stroke();
       ctx.fillStyle = Theme.c('axis');
-      ctx.fillText(s === 180 ? t('chart.now') : `-${180 - s}s`, Math.min(x, w - padR + 26), h - 4);
+      ctx.textAlign = s === 180 ? 'right' : 'center';
+      ctx.fillText(s === 180 ? t('chart.now') : `-${180 - s}s`, x, h - 4);
     }
-
-    const visSet = new Set(visible().map((a) => a.bssid));
-    const selected = [...state.selected]
-      .map((bssid) => [bssid, state.history.get(bssid)])
-      .filter(([bssid, hist]) => hist && hist.pts.length && visSet.has(bssid));
 
     if (!selected.length) {
       ctx.fillStyle = Theme.c('axis');
@@ -385,7 +424,6 @@ const Inspector = (() => {
       const rb = b[1].pts[b[1].pts.length - 1].rssi;
       return ra - rb;
     });
-    const placed = [];
     for (const [bssid, hist] of selected) {
       const color = colorFor(bssid);
       ctx.beginPath();
@@ -400,23 +438,10 @@ const Inspector = (() => {
       ctx.stroke();
 
       const last = hist.pts[hist.pts.length - 1];
-      const lx = xOf(last.t);
-      const ly = yOf(last.rssi);
       ctx.beginPath();
-      ctx.arc(lx, ly, 2.4, 0, Math.PI * 2);
+      ctx.arc(xOf(last.t), yOf(last.rssi), 2.6, 0, Math.PI * 2);
       ctx.fillStyle = color;
       ctx.fill();
-
-      ctx.fillStyle = color;
-      ctx.textAlign = 'left';
-      ctx.font = '10px Consolas, monospace';
-      // 末端标签避让：位置挤在一起就往上错一行，彻底错不开就只画线不画字
-      const want = Math.min(bottom - 2, Math.max(padT + 8, ly + 3));
-      let ty = want;
-      while (placed.some((p) => Math.abs(p - ty) < 11) && ty > padT + 8) ty -= 11;
-      if (placed.some((p) => Math.abs(p - ty) < 11)) continue;
-      placed.push(ty);
-      ctx.fillText(`${truncate(Settings.displayName(hist.ssid), 10)} ${last.rssi}`, padL + plotW + 6, ty);
     }
 
     renderLegend();
@@ -429,7 +454,7 @@ const Inspector = (() => {
       .filter(([bssid]) => visSet.has(bssid))
       .map(([bssid, h]) => ({ bssid, ssid: h.ssid, last: h.pts[h.pts.length - 1]?.rssi }))
       .sort((a, b) => (b.last ?? -999) - (a.last ?? -999))
-      .slice(0, 14);
+      .slice(0, 30);
 
     const sig = entries.map((e) => `${e.bssid}:${e.last}:${state.selected.has(e.bssid) ? 1 : 0}:${Settings.displayName(e.ssid)}`).join('|');
     if (sig === renderLegend._sig) return;
@@ -440,8 +465,8 @@ const Inspector = (() => {
         const on = state.selected.has(e.bssid);
         const color = on ? colorFor(e.bssid) : 'var(--dim)';
         const star = Settings.isWatched(e.ssid) ? '★ ' : '';
-        return `<button class="chip${on ? ' on' : ''}" data-bssid="${e.bssid}" style="--c:${color}">
-          <i></i>${star}${esc(truncate(Settings.displayName(e.ssid), 14))}<span>${e.last ?? '—'}</span>
+        return `<button class="chip${on ? ' on' : ''}" data-bssid="${e.bssid}" style="--c:${color}" title="${esc(Settings.displayName(e.ssid))} · ${e.bssid}">
+          <i></i><b>${star}${esc(truncate(Settings.displayName(e.ssid), 18))}</b><span>${e.last ?? '—'}</span>
         </button>`;
       })
       .join('');
@@ -796,6 +821,15 @@ const Inspector = (() => {
   }
 
   function renderAll() {
+    // 每个频段的建议信道（与信道视图同一口径），三频段图头部和竖带用
+    try {
+      state.rec = Object.fromEntries(
+        Channels.analyze(visible()).bands.filter((b) => b.best && b.aps.length).map((b) => [b.band, b.best])
+      );
+    } catch (e) {
+      state.rec = {};
+    }
+    document.body.classList.toggle('detail-open', $('#detail')?.dataset.open === '1');
     $$('.chart').forEach(drawBand);
     drawHistory();
     renderTable();
@@ -820,9 +854,63 @@ const Inspector = (() => {
       .join(' · ');
   }
 
+  /** 顶栏：连上了就显示一个「SSID · 信号 · 速率」胶囊，网卡全称等完整信息放进悬停提示；没连上照旧显示文字 */
   function renderIface() {
     const el = $('#iface');
-    if (el) el.textContent = ifaceText();
+    if (!el) return;
+    const full = ifaceText();
+    el.title = full;
+    if (!INVOKE && !state.frozen) {
+      el.classList.remove('pills', 'multi');
+      el.textContent = full;
+      return;
+    }
+    if (!state.conn.length) {
+      el.classList.remove('pills', 'multi');
+      el.textContent = full;
+      return;
+    }
+    // 每个已连接的网卡一个胶囊（多块网卡同时连着不同 Wi-Fi 时都要看得到）。
+    // 网卡名放在胶囊最前面，去掉 (R)/(TM) 缩短一点；完整信息在悬停提示里。
+    const ifaces = state.ifaces || [];
+    const multi = state.conn.length > 1;
+    el.classList.add('pills');
+    el.classList.toggle('multi', multi);
+    el.innerHTML = state.conn
+      .map((c, idx) => {
+        const ap = state.aps.find((a) => a.bssid === c.bssid);
+        const rssi = ap ? `${ap.rssi} dBm · ` : '';
+        const nic = ifaces.find((i) => i.guid === c.iface_guid) || (multi ? null : ifaces[0]);
+        const nicName = nic ? nic.description.replace(/\((R|TM|C)\)|®|™/gi, '').replace(/\s+/g, ' ').trim() : '';
+        const tip = `${nic ? nic.description : ''}${nic ? ' · ' : ''}${Settings.displayName(c.ssid)} · ${c.bssid} · ${rssi}${c.rx_mbps}/${c.tx_mbps} Mbps`;
+        return `<span class="pill-item" title="${esc(tip)}">` +
+          (nicName ? `<span class="nic">${esc(nicName)}</span><i class="sep"></i>` : '') +
+          `<i class="dot-ok"></i><b>${esc(Settings.displayName(c.ssid))}</b><span class="mono">${rssi}${c.rx_mbps} Mbps</span></span>`;
+      })
+      .join('');
+  }
+
+  /** 状态栏：上次扫描时间 / BSS 数 / 最强 + 本轮耗时 + 下次自动刷新倒计时 */
+  function statusText() {
+    if (!state.lastScan) return t('status.ready');
+    const aps = state.aps;
+    let txt = t('status.summary', {
+      time: state.lastScan.toLocaleTimeString(),
+      n: aps.length,
+      rssi: aps.length ? Math.max(...aps.map((a) => a.rssi)) : '—',
+    });
+    if (state.lastScanMs) txt += ' · ' + t('status.took', { s: (state.lastScanMs / 1000).toFixed(1) });
+    if (state.autoOn && state.timerStart && !state.frozen && document.body.dataset.view === 'inspector') {
+      const left = state.autoMs - ((Date.now() - state.timerStart) % state.autoMs);
+      txt += ' · ' + t('status.next', { s: Math.max(1, Math.ceil(left / 1000)) });
+    }
+    return txt;
+  }
+
+  function refreshStatus() {
+    if (state.scanning || state.lastError) return;
+    if ($('#status')?.dataset.kind !== 'summary') return;
+    setStatus(statusText(), 'summary');
   }
 
   async function loadInterfaces() {
@@ -899,6 +987,7 @@ const Inspector = (() => {
     const btn = $('#scan');
     if (btn) btn.disabled = true;
     setStatus(t('status.scanning'));
+    const scanT0 = performance.now();
     try {
       const [aps] = await Promise.all([
         INVOKE('scan_now', { waitMs: 2200, iface: Settings.get().iface || null }),
@@ -906,6 +995,7 @@ const Inspector = (() => {
       ]);
       state.aps = aps;
       state.lastScan = new Date();
+      state.lastScanMs = performance.now() - scanT0;
       state.scans++;
       state.fails = 0;
       state.nextRetryAt = 0;
@@ -919,13 +1009,8 @@ const Inspector = (() => {
       renderIface();
       Detail.refresh();
       if (document.body.dataset.view === 'channels') Channels.render();
-      setStatus(
-        t('status.summary', {
-          time: state.lastScan.toLocaleTimeString(),
-          n: aps.length,
-          rssi: aps.length ? Math.max(...aps.map((a) => a.rssi)) : '—',
-        })
-      );
+      state.scanning = false;
+      setStatus(statusText(), 'summary');
       log(
         'info',
         `scan ok: ${aps.length} bss, tracked ${state.selected.size}, history ${state.history.size}` +
@@ -967,7 +1052,8 @@ const Inspector = (() => {
     renderIface();
     Detail.refresh();
     if (document.body.dataset.view === 'channels') Channels.render();
-    setStatus(t('status.summary', { time: state.lastScan.toLocaleTimeString(), n: aps.length, rssi: aps.length ? Math.max(...aps.map((a) => a.rssi)) : '—' }));
+    state.lastScanMs = 0;
+    setStatus(statusText(), 'summary');
   }
 
   function resetHistory() {
@@ -987,6 +1073,7 @@ const Inspector = (() => {
     const cb = $('#auto');
     if (cb && cb.checked !== state.autoOn) cb.checked = state.autoOn;
     state.autoMs = Math.max(1, Settings.get().scanSec) * 1000;
+    state.timerStart = on ? Date.now() : 0;
     if (on) state.timer = setInterval(() => {
       if (document.body.dataset.view !== 'inspector') return;
       // 连续失败时按指数退避：没到重试时刻的 tick 直接跳过
@@ -1268,6 +1355,7 @@ const Inspector = (() => {
       });
     });
     window.addEventListener('resize', renderAll);
+    setInterval(refreshStatus, 1000);
     $$('.max-btn').forEach((b) => b.addEventListener('click', (ev) => {
       ev.stopPropagation();
       toggleMax(b.dataset.max);

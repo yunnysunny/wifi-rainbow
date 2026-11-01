@@ -18,6 +18,7 @@ const $$ = (sel) => [...document.querySelectorAll(sel)];
 
 /**
  * 主题：dark / light / system。<html data-theme="dark|light"> 是实际生效的那个，样式表按它换变量；
+ * 配色方案：sea（深色=深海青、浅色=纸白暖色，默认）/ classic（最早的午夜蓝 + 冷白），写在 <html data-palette>，和明暗正交。
  * 画布代码拿不到 CSS 变量，统一走 Theme.c('grid') 读 --cv-* 变量（按主题缓存，切主题时清）。
  *   Theme.apply('system')   设置项变了 / 启动时调；跟随系统时监听 prefers-color-scheme
  *   Theme.c('axis')         画布颜色字符串，对应 --cv-axis
@@ -26,6 +27,8 @@ const $$ = (sel) => [...document.querySelectorAll(sel)];
  */
 const Theme = (() => {
   const MODES = ['dark', 'light', 'system'];
+  const PALETTES = ['sea', 'classic'];
+  let palette = document.documentElement.dataset.palette === 'classic' ? 'classic' : 'sea';
   const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
   let mode = 'dark';
   let resolved = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
@@ -87,7 +90,28 @@ const Theme = (() => {
     booted = true;
   }
 
-  return { apply, c, rgb, subscribe: (fn) => subs.push(fn), get: () => mode, resolved: () => resolved, MODES };
+  /** 换配色方案：明暗不变，变量整套换掉，画布缓存作废并通知重画 */
+  function applyPalette(p) {
+    const next = PALETTES.includes(p) ? p : 'sea';
+    if (next === palette && document.documentElement.dataset.palette === next) return;
+    palette = next;
+    cache = {};
+    document.documentElement.dataset.palette = next;
+    for (const fn of subs) {
+      try {
+        fn(resolved);
+      } catch (e) {
+        log('error', 'theme subscriber failed: ' + e);
+      }
+    }
+  }
+
+  return {
+    apply, applyPalette, c, rgb,
+    subscribe: (fn) => subs.push(fn),
+    get: () => mode, resolved: () => resolved, palette: () => palette,
+    MODES, PALETTES,
+  };
 })();
 
 function esc(s) {
@@ -198,9 +222,78 @@ function fitCanvas(canvas) {
   return { ctx, w, h, dpr };
 }
 
-function setStatus(text) {
+/**
+ * 频段横轴：频率 → 0..1 的横向位置。5 GHz 的 ch64 与 ch100 之间（5340–5480 MHz）没有可用信道，
+ * 按频率线性画会空出一大段、两头的刻度又挤成一团，所以把这段压成一道窄缝（GAP_FRAC 宽），其余仍按频率线性。
+ *   pos(freq) → 0..1      inv(u) → freq（落在缝里时返回缝前一段的外推值）
+ *   gaps      → 每道缝中心的位置（0..1），画断轴记号用
+ *   mhzFrac   → 每 MHz 占的比例，算块宽 / 弧宽用
+ */
+const BAND_GAP_FRAC = 0.035;
+function bandAxis(band, min, max) {
+  const segs = band === '5 GHz' && min < 5340 && max > 5480 ? [[min, 5340], [5480, max]] : [[min, max]];
+  const total = segs.reduce((s, [a, b]) => s + (b - a), 0);
+  const scale = (1 - BAND_GAP_FRAC * (segs.length - 1)) / total;
+  const starts = [];
+  let acc = 0;
+  for (const [a, b] of segs) {
+    starts.push(acc);
+    acc += (b - a) * scale + BAND_GAP_FRAC;
+  }
+  const endOf = (i) => starts[i] + (segs[i][1] - segs[i][0]) * scale;
+  function pos(f) {
+    for (let i = 0; i < segs.length; i++) {
+      const [a, b] = segs[i];
+      if (f < a && i > 0) {
+        // 落在缝里：按比例摊进缝宽
+        const pb = segs[i - 1][1];
+        return endOf(i - 1) + ((f - pb) / (a - pb)) * BAND_GAP_FRAC;
+      }
+      if (f <= b || i === segs.length - 1) return starts[i] + (f - a) * scale;
+    }
+    return 1;
+  }
+  function inv(u) {
+    for (let i = segs.length - 1; i >= 0; i--) if (u >= starts[i]) return segs[i][0] + (u - starts[i]) / scale;
+    return segs[0][0] + u / scale;
+  }
+  const gaps = segs.slice(1).map((_, i) => endOf(i) + BAND_GAP_FRAC / 2);
+  return { pos, inv, gaps, mhzFrac: scale };
+}
+
+/** 在 (x, y) 画一个断轴记号「//」：横轴被压缩的地方 */
+function drawAxisBreak(ctx, x, y, color) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(x - 5, y + 4);
+  ctx.lineTo(x - 1, y - 4);
+  ctx.moveTo(x + 1, y + 4);
+  ctx.lineTo(x + 5, y - 4);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** 刻度抽稀：按像素间距决定哪些标签写得下（相邻至少 minGap px），强制保留的优先 */
+function thinTicks(items, minGap) {
+  const out = [];
+  let last = -Infinity;
+  for (const it of items) {
+    if (it.force || it.x - last >= minGap) {
+      if (it.force && out.length && it.x - out[out.length - 1].x < minGap) out.pop();
+      out.push(it);
+      last = it.x;
+    }
+  }
+  return out;
+}
+
+function setStatus(text, kind = '') {
   const el = $('#status');
-  if (el) el.textContent = text;
+  if (!el) return;
+  el.textContent = text;
+  el.dataset.kind = kind; // 'summary' = 扫描摘要，每秒刷新倒计时；其它临时消息不被覆盖
 }
 
 /**

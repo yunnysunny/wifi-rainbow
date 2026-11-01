@@ -185,20 +185,52 @@ const Channels = (() => {
     const aps = [...all].sort((a, b) => b.rssi - a.rssi).slice(0, MAX_ROWS);
     const hidden = all.length - aps.length;
     let labeled = 0;
-    cv.style.height = `${aps.length ? Math.max(84, Math.min(132, 26 + aps.length * 13)) : 54}px`;
+    // 底部多一条评分色带（STRIP），所以画布比原来高一截
+    const STRIP = 16;
+    cv.style.height = `${(aps.length ? Math.max(84, Math.min(132, 26 + aps.length * 13)) : 54) + STRIP + 4}px`;
     const fitted = fitCanvas(cv);
     if (!fitted) return;
     const { ctx, w, h } = fitted;
-    const padL = 8, padR = 8, padT = 6, padB = 18;
+    const padL = 8, padR = 8, padT = 14, padB = 18 + STRIP + 4;
     const plotW = w - padL - padR;
     const plotH = h - padT - padB;
     const baseline = padT + plotH;
-    const xOf = (f) => padL + ((f - spec.min) / (spec.max - spec.min)) * plotW;
+    // 横轴和概览同一套：5 GHz 把 ch64→ch100 的空档压成一道缝
+    const axis = bandAxis(bandInfo.band, spec.min, spec.max);
+    const xOf = (f) => padL + axis.pos(f) * plotW;
+    const band = bandInfo.band;
+
+    cv._geom = { xOf, axis, padL, padR, padT, baseline, w, h, plotW };
+
+    // DFS 信道（5 GHz 52–144）：整段铺一层淡紫底并标「DFS」，提醒这里要雷达检测、可能被迫跳频
+    if (spec.dfs?.length) {
+      const x0 = xOf(freqOf(band, spec.dfs[0]) - 10);
+      const x1 = xOf(freqOf(band, spec.dfs[spec.dfs.length - 1]) + 10);
+      ctx.fillStyle = hexAlpha(Theme.c('dfs'), 0.1);
+      ctx.fillRect(x0, padT - 12, x1 - x0, baseline - padT + 12);
+      ctx.fillStyle = Theme.c('dfs');
+      ctx.font = '10px "Segoe UI", "Microsoft YaHei UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(t('ch.dfs.zone'), (x0 + x1) / 2, padT - 3);
+    }
+
+    // 建议信道：虚线框出 ±10 MHz（和左侧结论卡对应）
+    if (bandInfo.best && all.length) {
+      const c = freqOf(band, bandInfo.best.ch);
+      const x0 = xOf(c - 10);
+      const x1 = xOf(c + 10);
+      ctx.fillStyle = hexAlpha(Theme.c('rec'), 0.1);
+      ctx.fillRect(x0, padT - 2, x1 - x0, baseline - padT + 2);
+      ctx.setLineDash([4, 3]);
+      ctx.strokeStyle = hexAlpha(Theme.c('rec'), 0.8);
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x0 + 0.5, padT - 1.5, x1 - x0 - 1, baseline - padT + 1);
+      ctx.setLineDash([]);
+    }
 
     // 高亮信道：先铺一条浅色竖带（信道中心 ±10 MHz），再画刻度
-    cv._geom = { xOf, padL, padR, padT, baseline, w, h, plotW };
     if (hl != null) {
-      const c = freqOf(bandInfo.band, hl);
+      const c = freqOf(band, hl);
       ctx.fillStyle = Theme.c('hl-band');
       ctx.fillRect(xOf(c - 10), padT - 2, xOf(c + 10) - xOf(c - 10), baseline - padT + 2);
     }
@@ -206,24 +238,55 @@ const Channels = (() => {
     // 底：候选信道的浅色刻度
     ctx.strokeStyle = Theme.c('grid');
     ctx.lineWidth = 1;
-    ctx.fillStyle = Theme.c('axis');
     ctx.font = '9px Consolas, monospace';
     ctx.textAlign = 'center';
-    const labelEvery = spec.chans.length > 26 ? 6 : 2;
-    spec.chans.forEach((ch, i) => {
-      const x = xOf(freqOf(bandInfo.band, ch));
+    const ticks = [];
+    let prevF = null;
+    spec.chans.forEach((ch) => {
+      const f = freqOf(band, ch);
+      const x = xOf(f);
       ctx.strokeStyle = ch === hl ? Theme.c('hl') : Theme.c('grid');
       ctx.beginPath();
       ctx.moveTo(x, padT);
       ctx.lineTo(x, baseline);
       ctx.stroke();
-      if (i % labelEvery === 0 || ch === hl) {
-        ctx.fillStyle = ch === hl ? Theme.c('hl-text') : Theme.c('axis');
-        ctx.font = ch === hl ? 'bold 9px Consolas, monospace' : '9px Consolas, monospace';
-        ctx.fillText(String(ch), x, h - 5);
-      }
+      ticks.push({ x, ch, force: ch === hl || (prevF != null && f - prevF > 60) });
+      prevF = f;
     });
+    for (const tk of thinTicks(ticks, 20)) {
+      ctx.fillStyle = tk.ch === hl ? Theme.c('hl-text') : Theme.c('axis');
+      ctx.font = tk.ch === hl ? 'bold 9px Consolas, monospace' : '9px Consolas, monospace';
+      ctx.fillText(String(tk.ch), tk.x, h - 5);
+    }
     ctx.font = '9px Consolas, monospace';
+
+    // 评分色带：每个候选信道一格，和横轴对齐；格子够宽就把分数写进去，建议信道描边
+    const stripY = baseline + 4;
+    const spacing = (spec.chans.length > 1 ? (xOf(freqOf(band, spec.chans[1])) - xOf(freqOf(band, spec.chans[0]))) : 20);
+    const cellW = Math.max(3, Math.min(spacing * 0.86, 40));
+    for (const sc of bandInfo.scored) {
+      const x = xOf(sc.center);
+      const col = sc.score >= 80 ? Theme.c('good') : sc.score >= 45 ? Theme.c('rssi-ok') : sc.score >= 20 ? Theme.c('warn') : Theme.c('bad');
+      const a = sc.score >= 80 ? 0.55 : 0.35;
+      ctx.fillStyle = hexAlpha(col, all.length ? a : 0.12);
+      const r = Math.min(3, cellW / 2);
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x - cellW / 2, stripY, cellW, STRIP, r);
+      else ctx.rect(x - cellW / 2, stripY, cellW, STRIP);
+      ctx.fill();
+      if (bandInfo.best && sc.ch === bandInfo.best.ch && all.length) {
+        ctx.strokeStyle = Theme.c('rec');
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+      }
+      if (cellW >= 18 && all.length) {
+        ctx.fillStyle = Theme.c('fg');
+        ctx.textAlign = 'center';
+        ctx.font = '9px Consolas, monospace';
+        ctx.fillText(String(sc.score), x, stripY + STRIP / 2 + 3);
+      }
+    }
+    for (const g of axis.gaps) drawAxisBreak(ctx, padL + g * plotW, baseline, Theme.c('axis'));
 
     if (!aps.length) {
       cv._hl = null;
@@ -240,8 +303,9 @@ const Channels = (() => {
     const jobs = [];
     ordered.forEach((ap, i) => {
       const s = spanOf(ap);
-      const x0 = xOf(s.lo);
-      const x1 = xOf(s.hi);
+      // 块夹在绘图区里：ch36 / ch1 的宽带块左边缘会越过画布，块内文字随之被裁掉
+      const x0 = Math.max(padL, xOf(s.lo));
+      const x1 = Math.min(w - padR, Math.max(x0 + 3, xOf(s.hi)));
       const y = padT + i * rowH;
       const bh = Math.max(5, rowH - 3);
       const color = rssiColor(ap.rssi);
@@ -390,7 +454,7 @@ const Channels = (() => {
     const rect = cv.getBoundingClientRect();
     const x = ev.clientX - rect.left;
     if (x < g.padL || x > g.w - g.padR) return null;
-    const freq = b.spec.min + ((x - g.padL) / g.plotW) * (b.spec.max - b.spec.min);
+    const freq = g.axis.inv((x - g.padL) / g.plotW);
     let best = null;
     for (const ch of b.spec.chans) {
       const d = Math.abs(freqOf(b.band, ch) - freq);
@@ -410,6 +474,7 @@ const Channels = (() => {
     const aps = Inspector.aps();
     const { rows, bands } = analyze(aps);
     lastBands = bands;
+    renderLegend();
 
     // 频段：频谱 + 信道评分
     for (const b of bands) {
@@ -418,18 +483,23 @@ const Channels = (() => {
         drawSpectrum(cv, b);
         bindHover(cv, b.band);
       }
+      renderCard(b, rows);
       const host = document.querySelector(`#ch-score-${bandId(b.band)}`);
       if (!host) continue;
-      const top = [...b.scored].sort((a, c) => c.score - a.score || a.ch - c.ch).slice(0, 12);
-      host.innerHTML = top
-        .map(
-          (s) => `<span class="ch-chip ${scoreClass(s.score)}${hover?.band === b.band && hover.ch === s.ch ? ' hl' : ''}" data-ch="${s.ch}" title="${t('ch.chip', { ch: s.ch, n: s.count, if: s.ifDbm ?? '—' })}">
+      // 结论卡底部：建议信道之外的几个备选（悬停同样会在频谱和表格里高亮）
+      const alt = [...b.scored]
+        .filter((s) => !b.best || s.ch !== b.best.ch)
+        .sort((a, c) => c.score - a.score || a.ch - c.ch)
+        .slice(0, 4);
+      host.innerHTML = b.aps.length
+        ? `<em class="ch-alt-label">${t('ch.alt')}</em>` +
+          alt
+            .map(
+              (s) => `<span class="ch-chip ${scoreClass(s.score)}${hover?.band === b.band && hover.ch === s.ch ? ' hl' : ''}" data-ch="${s.ch}" title="${t('ch.chip', { ch: s.ch, n: s.count, if: s.ifDbm ?? '—' })}">
             <b>${s.ch}</b><em>${s.score}</em></span>`
-        )
-        .join('') +
-        (b.best
-          ? `<span class="ch-best">${t(b.best.dfs ? 'ch.best.dfs' : 'ch.best', { ch: b.best.ch })} · ${b.best.ifDbm != null ? t('ch.ifdbm', { v: b.best.ifDbm }) : t('ch.ifnone')}</span>`
-          : `<span class="ch-best">${t('ch.best.none')}</span>`);
+            )
+            .join('')
+        : '';
       host.querySelectorAll('.ch-chip[data-ch]').forEach((chip) => {
         chip.addEventListener('mouseenter', () => highlight(b.band, Number(chip.dataset.ch)));
         chip.addEventListener('mouseleave', () => highlight(null));
@@ -442,8 +512,8 @@ const Channels = (() => {
       tbody.innerHTML = rows
         .map((r) => {
           const a = r.ap;
-          const cirText = r.cir === null ? '∞' : `${r.cir}`;
-          const cirCls = r.cir === null ? 'rssi-strong' : r.cir >= 25 ? 'rssi-strong' : r.cir >= 12 ? 'rssi-ok' : r.cir >= 5 ? 'rssi-weak' : 'rssi-bad';
+          const cirText = r.cir === null ? '∞' : `${r.cir > 0 ? '+' : ''}${r.cir} dB`;
+          const lvl = cirLevel(r.cir);
           const top = r.same.concat(r.adj).slice(0, 2);
           const srcText = top.length
             ? top.map((s) => `${truncate(s.ap.ssid || t('ch.hidden'), 10)}${s.co ? '' : ` (${t('ch.th.adj')})`}`).join(', ')
@@ -459,7 +529,7 @@ const Channels = (() => {
             <td class="num">${r.adj.length}</td>
             <td class="num">${r.sameDbm ?? '—'}</td>
             <td class="num">${r.adjDbm ?? '—'}</td>
-            <td class="num ${cirCls}">${cirText}</td>
+            <td class="cir-cell"><span class="cir-pill ${lvl}">${cirText}</span><em class="cir-txt ${lvl}">${t('cir.' + lvl)}</em></td>
             <td class="num">${r.distance ? r.distance.toFixed(1) + ' m' : '—'}</td>
             <td class="hint">${esc(srcText)}</td>
           </tr>`;
@@ -486,6 +556,98 @@ const Channels = (() => {
         adj: Math.round(adj),
         bad,
       }) + (best.length ? ` · ${best.join(langSep())}` : '');
+    }
+  }
+
+  /** 图例：颜色全部从绘图用的同一套函数 / 变量取，和频谱上画出来的一致 */
+  function renderLegend() {
+    const host = document.querySelector('#ch-legend');
+    if (!host) return;
+    const sw = (style, cls = '') => `<i class="lg-sw${cls}" style="${style}"></i>`;
+    const bar = (rssi) => sw(`background:${hexAlpha(rssiColor(rssi), 0.75)};border-color:${rssiColor(rssi)}`);
+    const cell = (name, a) => sw(`background:${hexAlpha(Theme.c(name), a)}`);
+    const html = `
+      <span class="lg-group"><b>${t('lg.bars')}</b>
+        ${bar(-40)}<span>${t('lg.strong')} ≥ -50</span>
+        ${bar(-62)}<span>-50 … -67</span>
+        ${bar(-72)}<span>-68 … -76</span>
+        ${bar(-85)}<span>${t('lg.weak')} &lt; -76 dBm</span>
+      </span>
+      <span class="lg-group"><b>${t('lg.score')}</b>
+        ${cell('good', 0.55)}<span>80–100</span>
+        ${cell('rssi-ok', 0.35)}<span>45–79</span>
+        ${cell('warn', 0.35)}<span>20–44</span>
+        ${cell('bad', 0.35)}<span>0–19 ${t('lg.busy')}</span>
+      </span>
+      <span class="lg-group">
+        ${sw(`background:${hexAlpha(Theme.c('rec'), 0.1)};border:1px dashed ${Theme.c('rec')}`)}<span>${t('lg.rec')}</span>
+        ${sw(`background:${hexAlpha(Theme.c('dfs'), 0.18)}`)}<span>${t('lg.dfs')}</span>
+      </span>
+      <span class="lg-group"><b>${t('lg.hover')}</b>
+        ${sw(`background:${hexAlpha(Theme.c('hl'), 0.92)}`)}<span>${t('lg.hit')}</span>
+        ${sw(`background:${hexAlpha(HL_OVERLAP, 0.85)}`)}<span>${t('lg.overlap')}</span>
+      </span>`;
+    if (host.innerHTML !== html) host.innerHTML = html;
+  }
+
+  /** CIR 分级：≥15 dB 良好，0–15 一般，<0 较差（干扰比自己还强）；没有干扰源算无干扰 */
+  function cirLevel(cir) {
+    if (cir === null) return 'none';
+    if (cir >= 15) return 'good';
+    if (cir >= 0) return 'fair';
+    return 'poor';
+  }
+
+  /**
+   * 频段左侧的结论卡：建议信道（大字）+ 你的网络现状 + 一句解释。
+   * 「你的网络」优先取当前连接在这个频段上的 AP，没有就取关注列表里最强的那个。
+   */
+  function renderCard(b, rows) {
+    const card = document.querySelector(`#ch-card-${bandId(b.band)}`);
+    if (!card) return;
+    card.querySelector('.ch-card-count').textContent = t('ch.card.count', { n: b.aps.length });
+    const recEl = card.querySelector('.ch-rec');
+    const mineEl = card.querySelector('.ch-mine');
+    const hintEl = card.querySelector('.ch-hint');
+    if (!b.aps.length || !b.best) {
+      recEl.innerHTML = `<span>${t('ch.card.rec')}</span><b class="mono">—</b><em>${t('ch.noap')}</em>`;
+      mineEl.textContent = '';
+      hintEl.textContent = '';
+      return;
+    }
+    const best = b.best;
+    const note = [best.dfs ? t('ch.card.dfs') : b.band === '5 GHz' ? t('ch.card.nodfs') : '', best.ifDbm != null ? t('ch.ifdbm', { v: best.ifDbm }) : t('ch.ifnone')]
+      .filter(Boolean)
+      .join(' · ');
+    recEl.innerHTML = `<span>${t('ch.card.rec')}</span><b class="mono">ch${best.ch}</b><em>${esc(note)}</em>`;
+
+    const conn = Inspector.conn?.() || [];
+    const connBss = new Set(conn.map((c) => c.bssid));
+    const inBand = rows.filter((r) => r.ap.band === b.band);
+    const mine =
+      inBand.find((r) => connBss.has(r.ap.bssid)) ||
+      inBand.filter((r) => Settings.isWatched(r.ap.ssid)).sort((x, y) => y.ap.rssi - x.ap.rssi)[0] ||
+      null;
+    if (mine) {
+      const cir = mine.cir === null ? t('cir.none') : `CIR ${mine.cir} dB`;
+      mineEl.textContent = t('ch.card.mine', {
+        name: Settings.displayName(mine.ap.ssid) || t('ch.hidden'),
+        ch: mine.ap.channel ?? '?',
+        w: mine.ap.width_mhz,
+        same: mine.same.length,
+        adj: mine.adj.length,
+        cir,
+      });
+      const myScore = b.scored.find((s) => s.ch === mine.ap.channel)?.score ?? 100;
+      hintEl.textContent =
+        mine.ap.channel !== best.ch && best.score - myScore >= 30
+          ? t('ch.card.move', { ch: best.ch })
+          : b.band === '5 GHz'
+            ? t('ch.card.dfshint')
+            : t('ch.card.ok');
+    } else {
+      mineEl.textContent = t('ch.card.nomine');
+      hintEl.textContent = b.band === '5 GHz' ? t('ch.card.dfshint') : '';
     }
   }
 

@@ -53,6 +53,13 @@
   --cv-chip-bg: rgba(9, 13, 20, .82);
   --cv-chip-text: #dbe4f3;
   --cv-spark-bg: #0d121b;
+  /* 跟随语义色的画布用色：建议信道 / DFS 区 / 评分色带 */
+  --cv-rec: var(--good);
+  --cv-dfs: var(--violet);
+  --cv-good: var(--good);
+  --cv-rssi-ok: var(--rssi-ok);
+  --cv-warn: var(--warn);
+  --cv-bad: var(--bad);
 }
 
 /* 浅色主题：设置 → 界面 → 主题。只换变量，布局不动。 */
@@ -106,6 +113,106 @@
   --cv-chip-bg: rgba(255, 255, 255, .9);
   --cv-chip-text: #1b2432;
   --cv-spark-bg: #f3f5f9;
+}
+
+/* 配色方案「海青 · 纸白」（默认）：设置 → 界面 → 配色方案。
+   和明暗正交，所以深色、浅色各一套；选择器比上面两块多一级，盖过经典配色。 */
+:root[data-palette="sea"]:not([data-theme="light"]) {
+  --bg: #0a1a1e;
+  --panel: #0e2227;
+  --panel-2: #12292f;
+  --panel-alt: #0c1f24;
+  --line: #1d3b45;
+  --line-soft: #16303a;
+  --fg: #e2f1f2;
+  --fg-2: #bfd6d9;
+  --muted: #87a5a9;
+  --muted-2: #7a989c;
+  --hint: #6f8d91;
+  --dim: #2d5560;
+  --dim-text: #5e7f84;
+  --accent: #38c6d4;
+  --on-accent: #04161a;
+  --good: #4ade80;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --rssi-ok: #a3e635;
+  --info: #6ed7e0;
+  --violet: #c4b5fd;
+  --input-bg: #08161a;
+  --hover: #12292f;
+  --sel: #133a45;
+  --hl-bg: #0f3d47;
+  --hl-border: #1f6f7c;
+  --hl-text: #9be6ee;
+  --track: #1a343c;
+  --overlay: rgba(8, 20, 24, .94);
+  --overlay-2: rgba(14, 34, 39, .98);
+
+  --cv-grid: #13292f;
+  --cv-grid-strong: #1a343c;
+  --cv-axis: #5e7f84;
+  --cv-axis-2: #6f8d91;
+  --cv-dim: #46666b;
+  --cv-note: #7a989c;
+  --cv-dot: #effafb;
+  --cv-hl: #38c6d4;
+  --cv-hl-text: #9be6ee;
+  --cv-hl-stroke: #d8f6f9;
+  --cv-hl-band: rgba(56, 198, 212, .10);
+  --cv-chip-bg: rgba(6, 18, 22, .82);
+  --cv-chip-text: #d8ecee;
+  --cv-spark-bg: #08161a;
+}
+
+:root[data-palette="sea"][data-theme="light"] {
+  --bg: #f6f2ea;
+  --panel: #fffdf8;
+  --panel-2: #efe9de;
+  --panel-alt: #faf6ef;
+  --line: #e0d8ca;
+  --line-soft: #ece5d9;
+  --fg: #201b15;
+  --fg-2: #3a332a;
+  --muted: #5f574b;
+  --muted-2: #62594c;
+  --hint: #62594c;
+  --dim: #c7bdac;
+  --dim-text: #62594c;
+  --accent: #0f766e;
+  --on-accent: #ffffff;
+  --good: #15803d;
+  --warn: #b45309;
+  --bad: #dc2626;
+  --rssi-ok: #4d7c0f;
+  --info: #0f766e;
+  --violet: #7a4a9e;
+  --input-bg: #fffdf8;
+  --hover: #f1ebe1;
+  --sel: #d6eeea;
+  --hl-bg: #d6eeea;
+  --hl-border: #8ccbc3;
+  --hl-text: #0f5f58;
+  --track: #e6dfd2;
+  --overlay: rgba(255, 253, 248, .96);
+  --overlay-2: rgba(255, 253, 248, .98);
+  --shadow: 0 8px 24px rgba(60, 45, 20, .16);
+  --shadow-l: -20px 0 44px rgba(60, 45, 20, .16);
+
+  --cv-grid: #ebe4d8;
+  --cv-grid-strong: #ddd4c5;
+  --cv-axis: #62594c;
+  --cv-axis-2: #62594c;
+  --cv-dim: #62594c;
+  --cv-note: #62594c;
+  --cv-dot: #fffdf8;
+  --cv-hl: #0f8a80;
+  --cv-hl-text: #0f5f58;
+  --cv-hl-stroke: #0b4d47;
+  --cv-hl-band: rgba(15, 138, 128, .10);
+  --cv-chip-bg: rgba(255, 253, 248, .9);
+  --cv-chip-text: #201b15;
+  --cv-spark-bg: #f6f2ea;
 }
 
 * { box-sizing: border-box; }
@@ -761,3 +868,185 @@ thead th.sorted.desc::after { content: ' ▼'; }
 .set-chips .chip { --c: var(--warn); cursor: pointer; }
 .set-chips .chip span { margin-left: 4px; }
 .set-chips .hint { font-size: 11px; color: var(--hint); }
+
+
+/* ============================================================ 界面改版（2026-11-01，设计稿 A + C） */
+
+/* 顶栏：连上网络时显示连接胶囊，网卡全称在悬停提示里 */
+.iface.pill {
+  flex: 0 1 auto;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--good) 12%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--good) 35%, transparent);
+  color: var(--fg);
+}
+.iface.pill b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.iface.pill .mono { color: var(--good); font-size: 11.5px; }
+.iface .dot-ok { width: 8px; height: 8px; border-radius: 50%; background: var(--good); flex: none; }
+.iface.pill { margin-right: auto; }
+
+/* 三频段图头部：建议信道徽标 */
+.chart-head .rec {
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--good);
+  background: color-mix(in srgb, var(--good) 13%, transparent);
+  white-space: nowrap;
+}
+
+/* 信号历史：曲线 + 右侧竖排图例 */
+.hist-gap { flex: 1; }
+.hist-body { flex: 1; display: flex; gap: 8px; min-height: 0; }
+.hist-body canvas { flex: 1; width: auto; min-width: 0; min-height: 0; }
+.hist-body .events { flex: 1; min-width: 0; overflow: auto; margin: 0; }
+.legend-rail {
+  flex: 0 0 210px;
+  display: flex; flex-direction: column; gap: 4px;
+  min-height: 0;
+  padding-left: 8px;
+  border-left: 1px solid var(--line-soft);
+}
+.legend-title { font-size: 11px; color: var(--muted); }
+.legend-rail .legend {
+  flex: 1; max-height: none;
+  flex-direction: column; flex-wrap: nowrap;
+  gap: 2px; overflow: auto;
+}
+.legend-rail .chip {
+  max-width: none; width: 100%;
+  border-radius: 6px; border-color: transparent; background: transparent;
+  padding: 2px 6px; flex: none;
+}
+.legend-rail .chip b { font-weight: 400; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+.legend-rail .chip.on { border-color: transparent; background: var(--panel-2); }
+.legend-rail .chip:hover { background: var(--hover); }
+.history[data-panel="events"] .legend-rail { display: none; }
+
+/* 成员行的信号条和分组行同色（之前被成员行的灰字盖成了灰色） */
+.ap-row.sub > td.rssi-strong { color: var(--good); }
+.ap-row.sub > td.rssi-ok { color: var(--rssi-ok); }
+.ap-row.sub > td.rssi-weak { color: var(--warn); }
+.ap-row.sub > td.rssi-bad { color: var(--bad); }
+
+/* 抽屉收起时停在视图右侧外面（translateX），里面的输入框一获得焦点浏览器就会把整个视图横向滚过去，
+   左边的图和表被推出屏幕。视图本身不需要滚动（各区块自己滚），直接禁止。 */
+#view-inspector { overflow: clip; grid-template-columns: minmax(0, 1fr); }
+/* 网格列默认会被画布的固有宽度（canvas.width 属性）撑开，抽屉一打开左侧就收不窄 */
+.charts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.chart, .history { min-width: 0; }
+
+/* 详情抽屉打开：和内容并排（不再盖住表格右半边），表格隐藏 BSSID / PHY / AKM / 空口 */
+@media (min-width: 1041px) {
+  body.detail-open #view-inspector { padding-right: min(368px, 96%); }
+  body.detail-open #ap :is(th, td):is(:nth-child(2), :nth-child(8), :nth-child(10), :nth-child(12)) { display: none; }
+}
+
+/* 信道视图：每个频段 = 左侧结论卡 + 右侧频谱（含评分色带） */
+.ch-band { display: flex; gap: 14px; align-items: stretch; padding: 10px 14px 6px; }
+.ch-band canvas { flex: 1 1 auto; width: auto; min-width: 0; align-self: center; }
+.ch-card {
+  flex: 0 0 250px;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+}
+.ch-card-head { display: flex; align-items: baseline; gap: 8px; }
+.ch-card-head b { font-size: 15px; font-weight: 600; }
+.ch-card-head em { font-style: normal; font-size: 11px; color: var(--muted); }
+.ch-rec {
+  display: flex; flex-direction: column;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--good) 12%, transparent);
+  color: var(--good);
+}
+.ch-rec span { font-size: 11px; }
+.ch-rec b { font-size: 22px; font-weight: 600; line-height: 1.2; }
+.ch-rec em { font-style: normal; font-size: 11px; }
+.ch-mine { margin: 0; font-size: 12px; line-height: 1.55; color: var(--fg-2); }
+.ch-hint { margin: 0; font-size: 11px; line-height: 1.55; color: var(--muted); }
+.ch-mine:empty, .ch-hint:empty { display: none; }
+.ch-card .ch-score { margin-top: auto; gap: 4px; }
+.ch-alt-label { font-style: normal; font-size: 11px; color: var(--muted); margin-right: 2px; }
+
+/* 信道表：CIR 分级标签 */
+.cir-cell { white-space: nowrap; }
+.cir-pill {
+  display: inline-block; min-width: 64px; text-align: center;
+  padding: 0 8px; border-radius: 999px;
+  font-size: 11.5px; font-variant-numeric: tabular-nums;
+}
+.cir-txt { font-style: normal; font-size: 11px; margin-left: 6px; }
+.cir-pill.good, .cir-pill.none { color: var(--good); background: color-mix(in srgb, var(--good) 15%, transparent); }
+.cir-pill.fair { color: var(--warn); background: color-mix(in srgb, var(--warn) 15%, transparent); }
+.cir-pill.poor { color: var(--bad); background: color-mix(in srgb, var(--bad) 15%, transparent); }
+.cir-txt.good, .cir-txt.none { color: var(--good); }
+.cir-txt.fair { color: var(--warn); }
+.cir-txt.poor { color: var(--bad); }
+
+@media (max-width: 1040px) {
+  .legend-rail { flex-basis: 140px; }
+  .ch-band { flex-wrap: wrap; }
+  .ch-card { flex: 1 1 100%; }
+  .iface.pill .mono { display: none; }
+}
+
+/* 信道页：整页纵向滚动（之前 overflow:hidden，结论卡把频段区撑高后下面的内容直接被裁掉、也没有滚动条） */
+.ch-body { overflow-x: hidden; overflow-y: auto; }
+.ch-band { flex: 0 0 auto; }
+.ch-table-wrap { flex: 0 0 auto; min-height: 0; overflow-x: auto; overflow-y: visible; }
+
+/* 信道页图例 */
+.ch-legend {
+  flex: 0 0 auto;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px;
+  padding: 8px 14px;
+  background: var(--panel);
+  font-size: 11.5px; color: var(--muted);
+}
+.lg-group { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.lg-group b { font-weight: 500; color: var(--fg-2); margin-right: 2px; }
+.lg-group span + .lg-sw { margin-left: 6px; }
+.lg-sw { display: inline-block; width: 18px; height: 10px; border-radius: 3px; border: 1px solid transparent; flex: none; }
+
+/* 连接胶囊里的网卡名 */
+.iface.pill { min-width: 0; }
+.iface.pill .nic { color: var(--fg-2); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 0 1 auto; }
+.iface.pill .sep { width: 1px; height: 14px; background: var(--line); flex: none; }
+.iface.pill b, .iface.pill .mono, .iface.pill .dot-ok { flex: none; white-space: nowrap; }
+@media (max-width: 1280px) { .iface.pill .nic, .iface.pill .sep { display: none; } }
+
+/* 多个连接：每个网卡一个胶囊（覆盖上面单胶囊的 .iface.pill 规则） */
+.iface.pills { flex: 0 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; margin-right: auto; overflow: hidden; }
+.iface .pill-item {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-width: 0; flex: 0 1 auto;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--good) 12%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--good) 35%, transparent);
+  color: var(--fg);
+}
+.iface .pill-item b { font-weight: 600; white-space: nowrap; flex: none; }
+.iface .pill-item .mono { color: var(--good); font-size: 11.5px; white-space: nowrap; flex: none; }
+.iface .pill-item .nic { color: var(--fg-2); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 40px; flex: 0 1 auto; }
+.iface .pill-item .sep { width: 1px; height: 14px; background: var(--line); flex: none; }
+@media (max-width: 1280px) { .iface .pill-item .nic, .iface .pill-item .sep { display: none; } }
+@media (max-width: 1040px) { .iface .pill-item .mono { display: none; } }
+
+/* 顶栏其余元素不压缩、不换行；空间不够时由连接胶囊让位 */
+.bar > .brand, .bar > .tabs, .bar > .actions, .bar .tab, .bar .toggle, .bar .brand strong { flex-shrink: 0; white-space: nowrap; }
+.iface .pill-item b { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.iface.pills.multi .pill-item { flex: 0 1 auto; }
+@media (max-width: 1560px) { .iface.pills.multi .pill-item .nic, .iface.pills.multi .pill-item .sep { display: none; } }
+@media (max-width: 1280px) { .iface.pills.multi .pill-item .mono { display: none; } }
+
+/* 顶栏不再显示「WiFi 彩虹」品牌区，省出空间给连接胶囊；程序名在窗口标题栏里已经有了。
+   DOM 保留（自检和语言切换会读它的文字）。 */
+.bar > .brand { display: none; }

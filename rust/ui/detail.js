@@ -197,9 +197,20 @@ const Detail = (() => {
     });
   }
 
+  /** 抽屉开合会改变左侧可用宽度（并排布局 + 表格隐藏次要列）：下一帧按新尺寸重画画布 */
+  function relayout() {
+    const open = $('#detail')?.dataset.open === '1';
+    const view = $('#view-inspector');
+    if (view) view.scrollLeft = 0;
+    if (document.body.classList.contains('detail-open') === open) return;
+    document.body.classList.toggle('detail-open', open);
+    requestAnimationFrame(() => Inspector.renderAll());
+  }
+
   function show(ap) {
     current = ap;
     render();
+    relayout();
     $$('#ap tbody tr').forEach((tr) => tr.classList.remove('sel'));
     document.querySelector(`#ap tbody tr[data-bssid="${ap.bssid}"]`)?.classList.add('sel');
   }
@@ -220,6 +231,7 @@ const Detail = (() => {
       host.dataset.open = '';
       host.innerHTML = '';
     }
+    relayout();
   }
 
   function currentBssid() {

@@ -40,7 +40,7 @@ Requirements: Windows 10 / 11 x64, a wireless adapter, the [WebView2 runtime](ht
 **Settings**
 - Hidden-SSID filter, minimum signal, band switches, refresh interval, scan adapter (when you have several)
 - Chinese / English UI, switches instantly
-- Dark / light / follow-system theme; optional minimize-to-tray on close (keeps scanning, tray menu to restore or quit)
+- Dark / light / follow-system theme, two color schemes (Sea & Paper: deep teal / warm paper, or Classic blue); optional minimize-to-tray on close (keeps scanning, tray menu to restore or quit)
 
 See the [user manual](docs/manual.en.md) for screenshots of every view.
 

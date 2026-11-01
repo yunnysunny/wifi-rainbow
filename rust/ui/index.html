@@ -1,15 +1,16 @@
 <!doctype html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN" data-theme="dark" data-palette="sea">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WiFi 彩虹</title>
-  <!-- 样式表加载前就按已保存的主题设好 data-theme，浅色用户启动时不会先闪一下深色；正式逻辑在 common.js 的 Theme -->
+  <!-- 样式表加载前就按已保存的主题 / 配色设好 data-theme、data-palette，启动时不会先闪一下别的配色；正式逻辑在 common.js 的 Theme -->
   <script>
     try {
       var s = JSON.parse(localStorage.getItem('wifisurvey.settings.v1') || '{}');
       var dark = s.theme === 'system' ? matchMedia('(prefers-color-scheme: dark)').matches : s.theme !== 'light';
       document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      document.documentElement.dataset.palette = s.palette === 'classic' ? 'classic' : 'sea';
     } catch (e) {}
   </script>
   <link rel="stylesheet" href="style.css" />
@@ -52,15 +53,15 @@
   <main class="view active" id="view-inspector">
     <section class="charts" id="charts">
       <div class="chart" data-band="2.4 GHz">
-        <div class="chart-head"><span>2.4 GHz</span><em class="meta">—</em><button class="max-btn" data-max="b0" data-i18n-title="chart.max" title="放大预览（Esc 还原）">⛶</button></div>
+        <div class="chart-head"><span>2.4 GHz</span><em class="rec" hidden></em><em class="meta">—</em><button class="max-btn" data-max="b0" data-i18n-title="chart.max" title="放大预览（Esc 还原）">⛶</button></div>
         <canvas></canvas>
       </div>
       <div class="chart" data-band="5 GHz">
-        <div class="chart-head"><span>5 GHz</span><em class="meta">—</em><button class="max-btn" data-max="b1" data-i18n-title="chart.max" title="放大预览（Esc 还原）">⛶</button></div>
+        <div class="chart-head"><span>5 GHz</span><em class="rec" hidden></em><em class="meta">—</em><button class="max-btn" data-max="b1" data-i18n-title="chart.max" title="放大预览（Esc 还原）">⛶</button></div>
         <canvas></canvas>
       </div>
       <div class="chart" data-band="6 GHz">
-        <div class="chart-head"><span>6 GHz</span><em class="meta">—</em><button class="max-btn" data-max="b2" data-i18n-title="chart.max" title="放大预览（Esc 还原）">⛶</button></div>
+        <div class="chart-head"><span>6 GHz</span><em class="rec" hidden></em><em class="meta">—</em><button class="max-btn" data-max="b2" data-i18n-title="chart.max" title="放大预览（Esc 还原）">⛶</button></div>
         <canvas></canvas>
       </div>
       <div class="tip" id="tip"></div>
@@ -69,13 +70,19 @@
     <section class="history" id="history" data-panel="curve">
       <div class="hist-head">
         <span><span data-i18n="hist.title">信号历史</span> <em data-i18n="hist.window">最近 3 分钟</em></span>
-        <div class="legend" id="legend"></div>
+        <span class="hist-gap"></span>
         <button id="hist-mode" class="ghost">事件</button>
         <button id="clear-hist" class="ghost" data-i18n="hist.clear">清空历史</button>
         <button class="max-btn" data-max="hist" data-i18n-title="chart.max" title="放大预览（Esc 还原）">⛶</button>
       </div>
-      <canvas></canvas>
-      <ul class="events" id="events"></ul>
+      <div class="hist-body">
+        <canvas></canvas>
+        <ul class="events" id="events"></ul>
+        <div class="legend-rail">
+          <div class="legend-title" data-i18n="hist.legend">图例 · 按当前信号排序，点击开关曲线</div>
+          <div class="legend" id="legend"></div>
+        </div>
+      </div>
     </section>
 
     <section class="table-wrap">
@@ -112,16 +119,35 @@
       <button id="ch-refresh" class="ghost" data-i18n="ch.refresh">重新分析</button>
     </div>
     <div class="ch-body">
+      <div class="ch-legend" id="ch-legend"></div>
       <section class="ch-band">
-        <div class="ch-band-head"><b>2.4 GHz</b><div class="ch-score" id="ch-score-24GHz"></div></div>
+        <div class="ch-card" id="ch-card-24GHz">
+          <div class="ch-card-head"><b>2.4 GHz</b><em class="ch-card-count"></em></div>
+          <div class="ch-rec"></div>
+          <p class="ch-mine"></p>
+          <p class="ch-hint"></p>
+          <div class="ch-score" id="ch-score-24GHz"></div>
+        </div>
         <canvas id="ch-spec-24GHz"></canvas>
       </section>
       <section class="ch-band">
-        <div class="ch-band-head"><b>5 GHz</b><div class="ch-score" id="ch-score-5GHz"></div></div>
+        <div class="ch-card" id="ch-card-5GHz">
+          <div class="ch-card-head"><b>5 GHz</b><em class="ch-card-count"></em></div>
+          <div class="ch-rec"></div>
+          <p class="ch-mine"></p>
+          <p class="ch-hint"></p>
+          <div class="ch-score" id="ch-score-5GHz"></div>
+        </div>
         <canvas id="ch-spec-5GHz"></canvas>
       </section>
       <section class="ch-band">
-        <div class="ch-band-head"><b>6 GHz</b><div class="ch-score" id="ch-score-6GHz"></div></div>
+        <div class="ch-card" id="ch-card-6GHz">
+          <div class="ch-card-head"><b>6 GHz</b><em class="ch-card-count"></em></div>
+          <div class="ch-rec"></div>
+          <p class="ch-mine"></p>
+          <p class="ch-hint"></p>
+          <div class="ch-score" id="ch-score-6GHz"></div>
+        </div>
         <canvas id="ch-spec-6GHz"></canvas>
       </section>
       <section class="ch-table-wrap">
@@ -138,7 +164,7 @@
               <th class="num" data-i18n="ch.th.adj">邻频</th>
               <th class="num" data-i18n="ch.th.sameInt">同频干扰</th>
               <th class="num" data-i18n="ch.th.adjInt">邻频干扰</th>
-              <th class="num" data-i18n="ch.th.cir">CIR</th>
+              <th data-i18n="ch.th.cir">CIR</th>
               <th class="num" data-i18n="ch.th.dist">距离</th>
               <th data-i18n="ch.th.src">主要干扰源</th>
             </tr>
@@ -213,6 +239,10 @@
         <label class="set-row">
           <span><span data-i18n="set.theme">主题</span><em data-i18n="set.theme.hint">深色、浅色，或跟随系统；窗口标题栏一起换，立即生效</em></span>
           <select id="set-theme" class="set-select"></select>
+        </label>
+        <label class="set-row">
+          <span><span data-i18n="set.palette">配色方案</span><em data-i18n="set.palette.hint">海青 · 纸白：深色用深海青、浅色用纸白暖色；经典蓝：原来的午夜蓝和冷白</em></span>
+          <select id="set-palette" class="set-select"></select>
         </label>
         <label class="set-row">
           <span><span data-i18n="set.tray">关闭窗口时最小化到托盘</span><em data-i18n="set.tray.hint">点 ✕ 不退出，窗口收进托盘、扫描照常；单击托盘图标还原，右键菜单里退出</em></span>

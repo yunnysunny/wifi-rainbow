@@ -350,6 +350,20 @@ const SelfTest = (() => {
       await frames();
       out.push(`theme: light=${lightOk} system=${sysOk}(${Theme.resolved()}) back=${document.documentElement.dataset.theme}`);
 
+      // 6b) 配色方案：sea / classic 切换后 data-palette、画布用色、下拉都得跟着变；再切回原值
+      const prevPalette = Settings.get().palette;
+      const other = prevPalette === 'classic' ? 'sea' : 'classic';
+      const gridBefore = Theme.c('grid');
+      Settings.set({ palette: other });
+      await frames();
+      const palOk =
+        document.documentElement.dataset.palette === other &&
+        Theme.c('grid') !== gridBefore &&
+        $('#set-palette')?.value === other;
+      Settings.set({ palette: prevPalette });
+      await frames();
+      out.push(`palette: switch=${palOk} back=${document.documentElement.dataset.palette}`);
+
       // 7) 托盘开关：开 → Rust 建托盘图标；关 → 撤掉。只验命令能走通，图标本身在屏幕上肉眼看
       const prevTray = Settings.get().closeToTray;
       let trayOk = 'skipped';
