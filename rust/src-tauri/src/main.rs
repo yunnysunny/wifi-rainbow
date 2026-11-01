@@ -31,6 +31,8 @@ struct ApDto {
     utilization: Option<u8>,
     iface: String,
     ie_bytes: usize,
+    /// 距驱动最后一次收到该 BSS 的帧过了多久；None = 驱动没给可信时间戳
+    age_ms: Option<u64>,
 }
 
 #[derive(Serialize)]
@@ -327,6 +329,7 @@ async fn scan_now(wait_ms: Option<u64>, iface: Option<String>) -> Result<Vec<ApD
             utilization: a.channel_utilization,
             iface: a.interface,
             ie_bytes: a.ie_bytes,
+            age_ms: a.age_ms,
         })
         .collect())
 }

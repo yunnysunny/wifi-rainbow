@@ -3,15 +3,19 @@
 //! 直接 FFI 调 `wlanapi.dll`，不依赖任何 crate：
 //! `WlanOpenHandle` → `WlanEnumInterfaces` → `WlanScan` → `WlanGetNetworkBssList`
 //!
-//! 两个已实测的关键点（Intel AX200 / Win11）：
-//! 1. `WLAN_BSS_ENTRY` 定长 360 字节，条目数组之后紧跟 IE 池，按条目顺序 **8 字节**对齐累加。
-//! 2. 驱动返回的 `ulIeOffset` 不可信，不能按它去取 IE。
+//! 关键点（Intel AX200 / Win11）：
+//! 1. `WLAN_BSS_ENTRY` 定长 360 字节，条目数组之后紧跟 IE 池。
+//! 2. `ulIeOffset` 是**相对本条 `WLAN_BSS_ENTRY` 起点**的偏移（wlanapi.h 文档如此），
+//!    不是相对整个列表；按 `entry + ulIeOffset` 取 IE，校验不过才退回「8 字节对齐累加 + 附近搜索」。
+//! 3. `WlanScan` 是异步的：用 ACM 的 scan_complete / scan_fail 通知等扫描结束，`wait` 只是上限。
 //!
-//! 信道宽度与安全等级不在 API 字段里，必须自己解析 IE（HT / VHT / HE / RSN / WPA）。
+//! 信道宽度与安全等级不在 API 字段里，必须自己解析 IE。宽度只看 **Operation** 类 IE
+//! （HT Op 61 / VHT Op 192 / HE Op 255-36 / EHT Op 255-106），Capabilities 类 IE 只表示「支持」，不代表在用。
 
 use std::ffi::c_void;
 use std::fmt;
-use std::time::Duration;
+use std::sync::{Arc, Condvar, Mutex};
+use std::time::{Duration, Instant};
 
 // ---------------------------------------------------------------- FFI
 
@@ -122,6 +126,23 @@ struct WlanConnectionAttributes {
     wlan_security_attributes: WlanSecurityAttributes,
 }
 
+/// WLAN_NOTIFICATION_DATA
+#[repr(C)]
+struct WlanNotificationData {
+    notification_source: u32,
+    notification_code: u32,
+    interface_guid: Guid,
+    dw_data_size: u32,
+    p_data: *const c_void,
+}
+
+type NotificationCallback = unsafe extern "system" fn(*const WlanNotificationData, *mut c_void);
+
+const WLAN_NOTIFICATION_SOURCE_NONE: u32 = 0;
+const WLAN_NOTIFICATION_SOURCE_ACM: u32 = 0x0000_0008;
+const WLAN_NOTIFICATION_ACM_SCAN_COMPLETE: u32 = 7;
+const WLAN_NOTIFICATION_ACM_SCAN_FAIL: u32 = 8;
+
 const WLAN_CLIENT_VERSION_VISTA: u32 = 2;
 const DOT11_BSS_TYPE_ANY: u32 = 3;
 const WLAN_INTF_OPCODE_CURRENT_CONNECTION: u32 = 7;
@@ -168,6 +189,21 @@ extern "system" {
         ppData: *mut *const c_void,
         pWlanOpcodeValueType: *mut u32,
     ) -> u32;
+    fn WlanRegisterNotification(
+        hClientHandle: Handle,
+        dwNotifSource: u32,
+        bIgnoreDuplicate: i32,
+        funcCallback: Option<NotificationCallback>,
+        pCallbackContext: *mut c_void,
+        pReserved: *const c_void,
+        pdwPrevNotifSource: *mut u32,
+    ) -> u32;
+}
+
+#[link(name = "kernel32")]
+extern "system" {
+    /// FILETIME 与 u64 小端布局一致（100ns，自 1601-01-01 UTC）
+    fn GetSystemTimeAsFileTime(lpSystemTimeAsFileTime: *mut u64);
 }
 
 const _: () = assert!(std::mem::size_of::<WlanBssEntry>() == 360, "WLAN_BSS_ENTRY 布局变了");
@@ -339,6 +375,9 @@ pub struct AccessPoint {
     pub channel_utilization: Option<u8>,
     pub ie_bytes: usize,
     pub interface: String,
+    /// 距驱动最后一次收到该 BSS 的 Beacon/Probe Response 过了多久（`ullHostTimestamp`）。
+    /// BSS 列表是驱动缓存，这一轮没扫到的 AP 也会留在里面；值不可信（驱动没填/单位异常）时为 None。
+    pub age_ms: Option<u64>,
 }
 
 /// 当前连接（对应 `netsh wlan show interfaces` 里连接态那一段）。
@@ -408,15 +447,30 @@ struct Ies {
     channel_utilization: Option<u8>,
 }
 
+/// IEEE 802.11-2020 表 9-149 密码套件选择子（OUI 00-0F-AC）
 fn cipher_name(suite: u8) -> &'static str {
     match suite {
         1 => "WEP-40",
         2 => "TKIP",
         4 => "CCMP",
         5 => "WEP-104",
-        8 => "GCMP-256",
-        9 => "GCMP-128",
+        8 => "GCMP-128",
+        9 => "GCMP-256",
+        10 => "CCMP-256",
         _ => "?",
+    }
+}
+
+/// 多个单播密码并存（如 TKIP+CCMP 混合模式）时取最强的那个来展示
+fn cipher_rank(name: &str) -> u8 {
+    match name {
+        "GCMP-256" => 6,
+        "CCMP-256" => 5,
+        "GCMP-128" => 4,
+        "CCMP" => 3,
+        "TKIP" => 2,
+        "WEP-104" | "WEP-40" => 1,
+        _ => 0,
     }
 }
 
@@ -433,6 +487,9 @@ fn akm_name(suite: u8) -> &'static str {
         11 => "802.1X-SUITE-B",
         12 => "802.1X-SUITE-B-192",
         18 => "OWE",
+        // SAE-EXT-KEY：WPA3 H2E / Wi-Fi 7 路由器常用，不认的话会被当成 WPA2
+        24 => "SAE-EXT-KEY",
+        25 => "FT-SAE-EXT-KEY",
         _ => "?",
     }
 }
@@ -441,23 +498,25 @@ fn le16(b: &[u8], pos: usize) -> Option<u16> {
     b.get(pos..pos + 2).map(|s| u16::from_le_bytes([s[0], s[1]]))
 }
 
-fn le32(b: &[u8], pos: usize) -> Option<u32> {
-    b.get(pos..pos + 4)
-        .map(|s| u32::from_le_bytes([s[0], s[1], s[2], s[3]]))
-}
-
 /// RSN(48) / WPA 厂商 IE(221) 共用结构；`body` 已去掉 WPA 的 4 字节 OUI+type 头。
 fn parse_rsn(body: &[u8], is_wpa1: bool, out: &mut Ies) {
     if body.len() < 6 {
         return;
     }
     let mut pos = 2; // version
-    let group = body[pos + 3];
-    out.cipher = Some(cipher_name(group));
+    let group = cipher_name(body[pos + 3]);
     pos += 4;
 
+    // 展示用单播（pairwise）密码，不是组播密码：TKIP+CCMP 混合模式下组播是 TKIP，实际单播是 CCMP
     let pairwise_count = le16(body, pos).unwrap_or(0) as usize;
-    pos += 2 + 4 * pairwise_count;
+    pos += 2;
+    let best_pairwise = (0..pairwise_count)
+        .filter_map(|i| body.get(pos + i * 4 + 3))
+        .map(|s| cipher_name(*s))
+        .filter(|n| *n != "?")
+        .max_by_key(|n| cipher_rank(n));
+    out.cipher = Some(best_pairwise.unwrap_or(group));
+    pos += 4 * pairwise_count;
 
     let akm_count = le16(body, pos).unwrap_or(0) as usize;
     pos += 2;
@@ -468,7 +527,9 @@ fn parse_rsn(body: &[u8], is_wpa1: bool, out: &mut Ies) {
     }
 
     let akm = &out.akm;
-    let has_sae = akm.contains(&"SAE") || akm.contains(&"FT-SAE");
+    let has_sae = akm
+        .iter()
+        .any(|a| matches!(*a, "SAE" | "FT-SAE" | "SAE-EXT-KEY" | "FT-SAE-EXT-KEY"));
     let has_psk = akm.iter().any(|a| a.starts_with("PSK"));
     out.security = if akm.contains(&"OWE") {
         Security::Owe
@@ -488,7 +549,69 @@ fn parse_rsn(body: &[u8], is_wpa1: bool, out: &mut Ies) {
     };
 }
 
-fn parse_ies(blob: &[u8], freq_mhz: u32) -> Ies {
+/// VHT Operation(192) → 工作带宽。Channel Width=1 时再用 CCFS0/CCFS1 区分 80 / 160 / 80+80。
+fn vht_op_width(body: &[u8]) -> Option<u16> {
+    let cw = *body.first()?;
+    match cw {
+        0 => None, // 20/40，由 HT Operation 决定
+        1 => {
+            let c0 = *body.get(1)? as i32;
+            let c1 = *body.get(2)? as i32;
+            if c1 == 0 {
+                Some(80)
+            } else {
+                // |CCFS1-CCFS0| == 8 → 160；> 16 → 80+80（按占用 160 MHz 计）
+                Some(if (c1 - c0).abs() == 8 || (c1 - c0).abs() > 16 { 160 } else { 80 })
+            }
+        }
+        2 | 3 => Some(160), // 已废弃的 160 / 80+80 写法
+        _ => None,
+    }
+}
+
+/// HE Operation(255/ext 36) 里的 6 GHz Operation Information → 工作带宽。
+/// 布局：[36][HE Op Params 3B][BSS Color 1B][Basic HE-MCS 2B][VHT Op Info 3B?][Max Co-Hosted 1B?][6GHz Op Info 5B?]
+fn he_op_6g_width(body: &[u8]) -> Option<u16> {
+    let p = u32::from_le_bytes([*body.get(1)?, *body.get(2)?, *body.get(3)?, 0]);
+    let mut pos = 7usize;
+    if p & (1 << 14) != 0 {
+        pos += 3; // VHT Operation Information Present
+    }
+    if p & (1 << 15) != 0 {
+        pos += 1; // Co-Hosted BSS
+    }
+    if p & (1 << 17) == 0 {
+        return None; // 没有 6 GHz Operation Information
+    }
+    let control = *body.get(pos + 1)?; // [primary][control][ccfs0][ccfs1][min rate]
+    Some(match control & 0x3 {
+        0 => 20,
+        1 => 40,
+        2 => 80,
+        _ => 160,
+    })
+}
+
+/// EHT Operation(255/ext 106) → 工作带宽（含 320 MHz）。
+/// 布局：[106][EHT Op Params 1B][Basic EHT-MCS 4B][EHT Op Info: control ccfs0 ccfs1 ...]
+fn eht_op_width(body: &[u8]) -> Option<u16> {
+    let params = *body.get(1)?;
+    if params & 0x01 == 0 {
+        return None; // EHT Operation Information 不存在，带宽沿用 HT/VHT/HE
+    }
+    let control = *body.get(6)?;
+    match control & 0x7 {
+        0 => Some(20),
+        1 => Some(40),
+        2 => Some(80),
+        3 => Some(160),
+        4 => Some(320),
+        _ => None,
+    }
+}
+
+/// `capability` 是 `WLAN_BSS_ENTRY.usCapabilityInformation`（Beacon 固定字段，不在 IE 里）
+fn parse_ies(blob: &[u8], freq_mhz: u32, capability: u16) -> Ies {
     let mut out = Ies {
         security: Security::Open,
         akm: Vec::new(),
@@ -497,7 +620,10 @@ fn parse_ies(blob: &[u8], freq_mhz: u32) -> Ies {
         station_count: None,
         channel_utilization: None,
     };
+    let mut ht40 = false;
     let mut vht: Option<u16> = None;
+    let mut he6: Option<u16> = None;
+    let mut eht: Option<u16> = None;
     let mut rsn: Option<&[u8]> = None;
     let mut wpa1: Option<&[u8]> = None;
     let mut i = 0usize;
@@ -508,47 +634,25 @@ fn parse_ies(blob: &[u8], freq_mhz: u32) -> Ies {
             break;
         };
         match id {
-            // Capability Information 里的 Privacy 位：给 WEP 一个兜底判据
-            1 if len >= 2 => {
-                let cap = u16::from_le_bytes([body[0], body[1]]);
-                if cap & 0x10 != 0 && out.security == Security::Open {
-                    out.security = Security::Wep;
-                }
-            }
             // BSS Load：连接数 + 信道利用率，可做"空口拥堵"
             11 if len >= 5 => {
                 out.station_count = le16(body, 0);
                 out.channel_utilization = body.get(2).copied();
             }
-            45 if len >= 2 => {
-                let info = le16(body, 0).unwrap_or(0);
-                if info & 0x0002 != 0 {
-                    out.width_mhz = out.width_mhz.max(40);
-                }
+            // HT Operation：次信道偏移(1=上/3=下) 且 STA Channel Width=1 才是真在跑 40 MHz
+            61 if len >= 2 => {
+                let info = body[1];
+                let offset = info & 0x03;
+                ht40 = (offset == 1 || offset == 3) && info & 0x04 != 0;
             }
             48 => rsn = Some(body),
-            191 if len >= 4 && freq_mhz >= 4900 => {
-                let info = le32(body, 0).unwrap_or(0);
-                let cw = (info >> 2) & 0x3;
-                vht = Some(match cw {
-                    1 => 80,
-                    2 | 3 => 160,
-                    _ => 40,
-                });
-            }
+            192 if len >= 3 && (4900..5925).contains(&freq_mhz) => vht = vht_op_width(body),
             221 if len >= 8 && body[..4] == [0x00, 0x50, 0xf2, 0x01] => wpa1 = Some(&body[4..]),
-            // HE Operation(255/ext 36)：6GHz Operation Information 只对 6 GHz 有效
-            255 if len >= 6 && body[0] == 36 && freq_mhz >= 5925 => {
-                if let Some(w) = body.get(5) {
-                    let cw = (w >> 1) & 0x3;
-                    out.width_mhz = out.width_mhz.max(match cw {
-                        1 => 40,
-                        2 => 80,
-                        3 => 160,
-                        _ => 20,
-                    });
-                }
-            }
+            255 if len >= 1 => match body[0] {
+                36 if freq_mhz >= 5925 => he6 = he_op_6g_width(body),
+                106 => eht = eht_op_width(body),
+                _ => {}
+            },
             _ => {}
         }
         i += 2 + len;
@@ -559,26 +663,35 @@ fn parse_ies(blob: &[u8], freq_mhz: u32) -> Ies {
         parse_rsn(body, false, &mut out);
     } else if let Some(body) = wpa1 {
         parse_rsn(body, true, &mut out);
+    } else if capability & 0x0010 != 0 {
+        // 没有 RSN/WPA IE 但 Capability 的 Privacy 位置 1 → WEP
+        out.security = Security::Wep;
     }
 
-    if let Some(w) = vht {
-        out.width_mhz = out.width_mhz.max(w);
-    }
-    // 按频段封顶：2.4 GHz 不存在 80/160，6 GHz 没有 40 以下的 HE 宽信道
+    let base = if ht40 { 40 } else { 20 };
+    out.width_mhz = [Some(base), vht, he6, eht].into_iter().flatten().max().unwrap_or(20);
+    // 按频段封顶：2.4 GHz 最多 40；5 GHz 最多 160；320 只存在于 6 GHz
     out.width_mhz = match freq_mhz {
         0..=2499 => out.width_mhz.min(40),
         2500..=5924 => out.width_mhz.min(160),
-        _ => out.width_mhz.min(160),
+        _ => out.width_mhz.min(320),
     };
     out
 }
 
+/// 中心频率 → (频段, 信道号)。全部用 checked 运算：4.9 GHz、6 GHz 信道 2（5935 MHz）等边界不会下溢。
 fn band_and_channel(freq_khz: u32) -> (Band, Option<u16>) {
     let mhz = freq_khz / 1000;
+    let ch = |base: u32| mhz.checked_sub(base).map(|d| (d / 5) as u16);
     match mhz {
-        2400..=2499 => (Band::B24, Some(if mhz == 2484 { 14 } else { ((mhz - 2407) / 5) as u16 })),
-        4900..=5899 => (Band::B5, Some(((mhz - 5000) / 5) as u16)),
-        5900..=7199 => (Band::B6, Some(((mhz - 5950) / 5) as u16)),
+        2484 => (Band::B24, Some(14)),
+        2400..=2499 => (Band::B24, ch(2407)),
+        // 4.9 GHz（日本 / 公共安全）：信道号以 4000 MHz 为起点，如 4920 → 184
+        4900..=4999 => (Band::B5, ch(4000)),
+        5000..=5924 => (Band::B5, ch(5000)),
+        // 6 GHz：信道 2 是 5935 MHz 特例，其余以 5950 为起点（信道 1 = 5955）
+        5935 => (Band::B6, Some(2)),
+        5925..=7200 => (Band::B6, ch(5950)),
         _ => (Band::Unknown, None),
     }
 }
@@ -661,7 +774,43 @@ fn decode_utf16(buf: &[u16]) -> String {
     String::from_utf16_lossy(&buf[..end])
 }
 
-/// 触发一次扫描并读取 BSS 列表。`wait` 是发起扫描后等待驱动回报的时间。扫全部网卡。
+/// 等待各网卡的 scan_complete / scan_fail 通知。回调在 wlanapi 的线程上跑。
+struct ScanWaiter {
+    pending: Mutex<Vec<String>>,
+    done: Condvar,
+}
+
+unsafe extern "system" fn on_wlan_notification(data: *const WlanNotificationData, ctx: *mut c_void) {
+    if data.is_null() || ctx.is_null() {
+        return;
+    }
+    let d = &*data;
+    if d.notification_source != WLAN_NOTIFICATION_SOURCE_ACM
+        || !matches!(
+            d.notification_code,
+            WLAN_NOTIFICATION_ACM_SCAN_COMPLETE | WLAN_NOTIFICATION_ACM_SCAN_FAIL
+        )
+    {
+        return;
+    }
+    let waiter = &*(ctx as *const ScanWaiter);
+    let guid = d.interface_guid.to_string();
+    if let Ok(mut p) = waiter.pending.lock() {
+        p.retain(|g| *g != guid);
+        if p.is_empty() {
+            waiter.done.notify_all();
+        }
+    }
+}
+
+fn now_filetime() -> u64 {
+    let mut ft = 0u64;
+    unsafe { GetSystemTimeAsFileTime(&mut ft) };
+    ft
+}
+
+/// 触发一次扫描并读取 BSS 列表。`wait` 是等扫描完成的**上限**；
+/// 驱动提前报 scan_complete 就提前返回。扫全部网卡。
 pub fn scan(wait: Duration) -> Result<Vec<AccessPoint>> {
     scan_on(wait, None)
 }
@@ -669,6 +818,11 @@ pub fn scan(wait: Duration) -> Result<Vec<AccessPoint>> {
 /// 只扫一块网卡（`iface_guid` 是 `Guid` 的 Display 文本）；传 `None` 等于 `scan`。
 /// 指定的 GUID 不存在时退回扫全部，而不是报错——网卡被拔掉后设置里残留的 GUID 不该把扫描卡死。
 pub fn scan_on(wait: Duration, iface_guid: Option<&str>) -> Result<Vec<AccessPoint>> {
+    // waiter 必须比 client 活得久：client 先 drop（WlanCloseHandle 会等在途回调结束），waiter 后 drop
+    let waiter = Arc::new(ScanWaiter {
+        pending: Mutex::new(Vec::new()),
+        done: Condvar::new(),
+    });
     let client = Client::open()?;
     let mut ifaces = interfaces()?;
     if ifaces.is_empty() {
@@ -688,9 +842,22 @@ pub fn scan_on(wait: Duration, iface_guid: Option<&str>) -> Result<Vec<AccessPoi
         }
     }
 
+    *waiter.pending.lock().unwrap() = ifaces.iter().map(|i| i.guid.to_string()).collect();
+    let registered = unsafe {
+        WlanRegisterNotification(
+            client.handle,
+            WLAN_NOTIFICATION_SOURCE_ACM,
+            1,
+            Some(on_wlan_notification),
+            Arc::as_ptr(&waiter) as *mut c_void,
+            std::ptr::null(),
+            std::ptr::null_mut(),
+        )
+    } == 0;
+
     let mut all: Vec<AccessPoint> = Vec::new();
     for iface in &ifaces {
-        unsafe {
+        let code = unsafe {
             WlanScan(
                 client.handle,
                 &iface.guid,
@@ -699,15 +866,67 @@ pub fn scan_on(wait: Duration, iface_guid: Option<&str>) -> Result<Vec<AccessPoi
                 std::ptr::null(),
             )
         };
+        if code != 0 {
+            // 这块网卡不会再发通知（比如正被别的扫描占用），别为它干等
+            let g = iface.guid.to_string();
+            waiter.pending.lock().unwrap().retain(|p| *p != g);
+        }
     }
-    std::thread::sleep(wait);
+
+    if registered {
+        let deadline = Instant::now() + wait;
+        let mut pending = waiter.pending.lock().unwrap();
+        while !pending.is_empty() {
+            let left = deadline.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                break;
+            }
+            pending = waiter.done.wait_timeout(pending, left).unwrap().0;
+        }
+        drop(pending);
+        unsafe {
+            WlanRegisterNotification(
+                client.handle,
+                WLAN_NOTIFICATION_SOURCE_NONE,
+                1,
+                None,
+                std::ptr::null_mut(),
+                std::ptr::null(),
+                std::ptr::null_mut(),
+            )
+        };
+    } else {
+        std::thread::sleep(wait);
+    }
 
     for iface in &ifaces {
         for ap in read_bss_list(&client, iface)? {
             all.push(ap);
         }
     }
-    Ok(all)
+    Ok(dedup_by_bssid(all))
+}
+
+/// 多块网卡同时扫描时，同一个 BSSID 会被每块网卡各报告一次（信号略有差别），
+/// 界面上就成了同名、同信道的两条。按 BSSID 合并，保留信号最强的那条；顺序按首次出现。
+fn dedup_by_bssid(all: Vec<AccessPoint>) -> Vec<AccessPoint> {
+    let mut out: Vec<AccessPoint> = Vec::with_capacity(all.len());
+    let mut index: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for ap in all {
+        let key = ap.bssid.to_ascii_lowercase();
+        match index.get(&key) {
+            Some(&i) => {
+                if ap.rssi_dbm > out[i].rssi_dbm {
+                    out[i] = ap;
+                }
+            }
+            None => {
+                index.insert(key, out.len());
+                out.push(ap);
+            }
+        }
+    }
+    out
 }
 
 /// 每块网卡的当前连接；没连上的网卡不出现在结果里。
@@ -798,17 +1017,17 @@ fn read_bss_list(client: &Client, iface: &InterfaceInfo) -> Result<Vec<AccessPoi
     let entries_base = std::ptr::addr_of!(list.wlan_bss_entries) as *const WlanBssEntry;
     let total = list.dw_total_size as usize;
     let whole = unsafe { std::slice::from_raw_parts(buf_base, total) };
-    // IE 池紧跟定长条目数组；每块 IE 之后按 **8 字节** 对齐（不是 4，之前按 4 累加，
-    // 从第一个奇数长度的块起就错位，后几个 AP 的 RSN IE 全读不到 → 安全方式误报 OPEN）。
-    // ulIeOffset 依然不可信（AX200 上返回的值跟实际位置无关）。
+    // 正规路径：ulIeOffset 相对本条目起点。备用路径：IE 池紧跟定长条目数组，
+    // 每块 IE 之后按 8 字节对齐累加，再在附近搜一段合法 IE 链（应付不按文档填 offset 的驱动）。
     let mut pool_offset = hal + count * entry_size;
+    let now_ft = now_filetime();
 
     let mut out = Vec::with_capacity(count);
     for i in 0..count {
         let e = unsafe { &*entries_base.add(i) };
         let ie_size = e.ul_ie_size as usize;
         let mut ies = Ies {
-            security: Security::Open,
+            security: if e.us_capability_information & 0x0010 != 0 { Security::Wep } else { Security::Open },
             akm: Vec::new(),
             cipher: None,
             width_mhz: 20,
@@ -816,14 +1035,19 @@ fn read_bss_list(client: &Client, iface: &InterfaceInfo) -> Result<Vec<AccessPoi
             channel_utilization: None,
         };
         if ie_size > 0 {
-            // 先按模型位置取；万一哪天布局又变了，在附近搜一段长度刚好吻合的合法 IE 链
-            let start_off = find_ie_start(whole, pool_offset, ie_size);
+            let entry_off = hal + i * entry_size;
+            let by_spec = entry_off + e.ul_ie_offset as usize;
+            let (start_off, how) = if is_ie_chain(whole, by_spec, ie_size) {
+                (Some(by_spec), "spec")
+            } else {
+                (find_ie_start(whole, pool_offset, ie_size), "fallback")
+            };
             if let Some(o) = start_off {
                 let blob = &whole[o..o + ie_size];
-                ies = parse_ies(blob, e.ul_ch_center_frequency / 1000);
+                ies = parse_ies(blob, e.ul_ch_center_frequency / 1000, e.us_capability_information);
                 if std::env::var_os("WLAN_IE_DUMP").is_some() {
                     eprintln!(
-                        "[ie] #{i} {} ieSize={ie_size} model={pool_offset} used={o} ids={:?}",
+                        "[ie] #{i} {} ieSize={ie_size} spec={by_spec} model={pool_offset} used={o}({how}) ids={:?}",
                         ssid_text(&e.dot11_ssid),
                         ie_ids(blob)
                     );
@@ -831,6 +1055,13 @@ fn read_bss_list(client: &Client, iface: &InterfaceInfo) -> Result<Vec<AccessPoi
             }
             pool_offset = (pool_offset + ie_size + 7) & !7usize;
         }
+
+        // ullHostTimestamp 是 FILETIME；超过 1 天或在未来说明驱动没按约定填，不采信
+        let age_ms = now_ft
+            .checked_sub(e.ull_host_timestamp)
+            .filter(|_| e.ull_host_timestamp != 0)
+            .map(|d| d / 10_000)
+            .filter(|ms| *ms < 86_400_000);
 
         let (band, channel) = band_and_channel(e.ul_ch_center_frequency);
         out.push(AccessPoint {
@@ -852,6 +1083,7 @@ fn read_bss_list(client: &Client, iface: &InterfaceInfo) -> Result<Vec<AccessPoi
             channel_utilization: ies.channel_utilization,
             ie_bytes: ie_size,
             interface: iface.description.clone(),
+            age_ms,
         });
     }
     Ok(out)
@@ -860,19 +1092,22 @@ fn read_bss_list(client: &Client, iface: &InterfaceInfo) -> Result<Vec<AccessPoi
 /// 找一块 IE 的起点：先信模型位置，不合格就在它附近 ±64 字节内搜一段
 /// 「以 SSID(0) 开头、TLV 链刚好走完 ie_size 字节」的合法链。
 fn find_ie_start(buf: &[u8], expected: usize, ie_size: usize) -> Option<usize> {
-    let ok = |o: usize| -> bool {
-        if o + ie_size > buf.len() || o < 8 {
-            return false;
-        }
-        let b = &buf[o..o + ie_size];
-        b.len() >= 2 && b[0] == 0 && ie_end(b) == Some(ie_size)
-    };
+    let ok = |o: usize| is_ie_chain(buf, o, ie_size);
     if ok(expected) {
         return Some(expected);
     }
     let lo = expected.saturating_sub(64);
     let hi = (expected + 64).min(buf.len());
     (lo..hi).find(|&o| ok(o))
+}
+
+/// `buf[o..o+ie_size]` 是不是一段「以 SSID(0) 开头、TLV 刚好走完」的合法 IE 链
+fn is_ie_chain(buf: &[u8], o: usize, ie_size: usize) -> bool {
+    if o < 8 || o.checked_add(ie_size).is_none_or(|end| end > buf.len()) {
+        return false;
+    }
+    let b = &buf[o..o + ie_size];
+    b.len() >= 2 && b[0] == 0 && ie_end(b) == Some(ie_size)
 }
 
 /// IE 链走完时的位置（诊断用：合法链应该正好等于 blob 长度）；越界或不整齐返回 None
@@ -933,4 +1168,140 @@ fn mac_text(m: &[u8; 6]) -> String {
 
 pub fn interface_id(g: &Guid) -> String {
     guid_to_string(g)
+}
+
+// ---------------------------------------------------------------- 测试
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 拼 IE 链：SSID 打头，后面跟给定的 (id, body)
+    fn ies(items: &[(u8, &[u8])]) -> Vec<u8> {
+        let mut v = vec![0u8, 4, b't', b'e', b's', b't'];
+        for (id, body) in items {
+            v.push(*id);
+            v.push(body.len() as u8);
+            v.extend_from_slice(body);
+        }
+        v
+    }
+
+    const RATES: &[u8] = &[0x96, 0x82, 0x84, 0x8b]; // 首字节带 0x10 位，旧代码会误判 WEP
+
+    #[test]
+    fn supported_rates_is_not_capability() {
+        let b = ies(&[(1, RATES)]);
+        assert_eq!(parse_ies(&b, 2437, 0x0401).security, Security::Open);
+    }
+
+    #[test]
+    fn privacy_bit_without_rsn_is_wep() {
+        let b = ies(&[(1, RATES)]);
+        assert_eq!(parse_ies(&b, 2437, 0x0411).security, Security::Wep);
+    }
+
+    fn rsn(pairwise: &[u8], akm: &[u8], group: u8) -> Vec<u8> {
+        let mut v = vec![1, 0, 0x00, 0x0f, 0xac, group];
+        v.extend_from_slice(&(pairwise.len() as u16).to_le_bytes());
+        for p in pairwise {
+            v.extend_from_slice(&[0x00, 0x0f, 0xac, *p]);
+        }
+        v.extend_from_slice(&(akm.len() as u16).to_le_bytes());
+        for a in akm {
+            v.extend_from_slice(&[0x00, 0x0f, 0xac, *a]);
+        }
+        v.extend_from_slice(&[0, 0]);
+        v
+    }
+
+    #[test]
+    fn mixed_mode_shows_strongest_pairwise_cipher() {
+        let r = rsn(&[2, 4], &[2], 2);
+        let p = parse_ies(&ies(&[(48, &r)]), 2437, 0x0411);
+        assert_eq!(p.security, Security::Wpa2);
+        assert_eq!(p.cipher, Some("CCMP"));
+    }
+
+    #[test]
+    fn gcmp_suite_numbers() {
+        let r = rsn(&[9], &[8], 9);
+        let p = parse_ies(&ies(&[(48, &r)]), 5955, 0x0411);
+        assert_eq!(p.cipher, Some("GCMP-256"));
+        assert_eq!(p.security, Security::Wpa3);
+    }
+
+    #[test]
+    fn sae_ext_key_is_wpa3() {
+        let r = rsn(&[4], &[24], 4);
+        assert_eq!(parse_ies(&ies(&[(48, &r)]), 5955, 0x0411).security, Security::Wpa3);
+        let r = rsn(&[4], &[2, 24], 4);
+        assert_eq!(parse_ies(&ies(&[(48, &r)]), 5180, 0x0411).security, Security::Wpa2Wpa3);
+    }
+
+    // HT Operation：primary=36，info 字节 = 偏移 | STA width 位
+    fn ht_op(info: u8) -> Vec<u8> {
+        let mut v = vec![36, info];
+        v.extend_from_slice(&[0; 20]);
+        v
+    }
+
+    #[test]
+    fn ht_capability_alone_is_20mhz() {
+        // 只有 HT Capabilities 说支持 40，HT Operation 没开次信道 → 20
+        let b = ies(&[(45, &[0x02, 0x00]), (61, &ht_op(0x00))]);
+        assert_eq!(parse_ies(&b, 2437, 0).width_mhz, 20);
+    }
+
+    #[test]
+    fn ht_operation_40() {
+        let b = ies(&[(61, &ht_op(0x05))]);
+        assert_eq!(parse_ies(&b, 2437, 0).width_mhz, 40);
+    }
+
+    #[test]
+    fn vht_capabilities_do_not_set_width() {
+        // VHT Capabilities 的 Supported Channel Width Set=0（=支持 80），旧代码会映射成 40
+        let b = ies(&[(61, &ht_op(0x05)), (191, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), (192, &[1, 42, 0, 0, 0])]);
+        assert_eq!(parse_ies(&b, 5180, 0).width_mhz, 80);
+    }
+
+    #[test]
+    fn vht_operation_160_via_ccfs1() {
+        let b = ies(&[(61, &ht_op(0x05)), (192, &[1, 42, 50, 0, 0])]);
+        assert_eq!(parse_ies(&b, 5180, 0).width_mhz, 160);
+        let b = ies(&[(61, &ht_op(0x05)), (192, &[0, 0, 0, 0, 0])]);
+        assert_eq!(parse_ies(&b, 5180, 0).width_mhz, 40);
+    }
+
+    #[test]
+    fn he_6ghz_operation_info() {
+        // params bit17 置位：6 GHz Op Info 在 MCS 之后；control=2 → 80
+        let he = [36u8, 0x00, 0x00, 0x02, 0x00, 0xfc, 0xff, 37, 0x02, 39, 0, 6];
+        assert_eq!(parse_ies(&ies(&[(255, &he)]), 6135, 0).width_mhz, 80);
+        // 同时带 VHT Op Info（bit14）时偏移要跳 3 字节
+        let he = [36u8, 0x00, 0x40, 0x02, 0x00, 0xfc, 0xff, 0, 0, 0, 37, 0x03, 39, 47, 6];
+        assert_eq!(parse_ies(&ies(&[(255, &he)]), 6135, 0).width_mhz, 160);
+    }
+
+    #[test]
+    fn eht_320_only_in_6ghz() {
+        let eht = [106u8, 0x01, 0, 0, 0, 0, 0x04, 31, 63];
+        assert_eq!(parse_ies(&ies(&[(255, &eht)]), 6135, 0).width_mhz, 320);
+        assert_eq!(parse_ies(&ies(&[(255, &eht)]), 5180, 0).width_mhz, 160);
+    }
+
+    #[test]
+    fn channel_numbers_no_underflow() {
+        assert_eq!(band_and_channel(2_412_000), (Band::B24, Some(1)));
+        assert_eq!(band_and_channel(2_484_000), (Band::B24, Some(14)));
+        assert_eq!(band_and_channel(2_400_000).0, Band::B24);
+        assert_eq!(band_and_channel(4_920_000), (Band::B5, Some(184)));
+        assert_eq!(band_and_channel(5_180_000), (Band::B5, Some(36)));
+        assert_eq!(band_and_channel(5_885_000), (Band::B5, Some(177)));
+        assert_eq!(band_and_channel(5_935_000), (Band::B6, Some(2)));
+        assert_eq!(band_and_channel(5_955_000), (Band::B6, Some(1)));
+        assert_eq!(band_and_channel(7_115_000), (Band::B6, Some(233)));
+        assert_eq!(band_and_channel(5_930_000).0, Band::B6);
+    }
 }
